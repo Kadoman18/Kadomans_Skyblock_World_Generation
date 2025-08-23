@@ -1,0 +1,19 @@
+{
+	"format_version": 2,
+	"header": {
+		"min_engine_version": [1, 21, 0],
+		"name": "Skyblock Generation (BP)",
+		"description": "Enables void world generation while keeping biome mapping",
+		"uuid": "cd3dbc3f-4905-4e5c-aaf5-c0e8b70b7d21",
+		"version": [1, 0, 7]
+	},
+	"modules": [
+		{
+			"type": "data",
+			"description": "Attempting bedrock replacement.",
+			"uuid": "0d5b64bb-ab30-4a03-a5d5-aec96bb7ad6f",
+			"version": [1, 0, 7]
+		}
+	],
+	"metadata": { "authors": ["Kadoman18"] }
+}

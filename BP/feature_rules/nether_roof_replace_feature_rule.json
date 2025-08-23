@@ -1,0 +1,47 @@
+{
+	"format_version": "1.18.0",
+	"minecraft:feature_rules": {
+		"description": {
+			"identifier": "kado:nether_roof_replace_feature_rule",
+			"places_feature": "kado:bedrock_replace_feature"
+		},
+		"conditions": {
+			"placement_pass": "final_pass",
+			"minecraft:biome_filter": [
+				{
+					"test": "has_biome_tag",
+					"operator": "==",
+					"value": "basalt_deltas"
+				},
+				{
+					"test": "has_biome_tag",
+					"operator": "==",
+					"value": "crimson_forest"
+				},
+				{
+					"test": "has_biome_tag",
+					"operator": "==",
+					"value": "hell"
+				},
+				{
+					"test": "has_biome_tag",
+					"operator": "==",
+					"value": "soulsand_valley"
+				},
+				{
+					"test": "has_biome_tag",
+					"operator": "==",
+					"value": "warped_forest"
+				}
+			]
+		},
+		"distribution": {
+			"scatter_chance": 100,
+			"iterations": 1,
+			"coordinate_eval_order": "yxz",
+			"y": 0,
+			"x": 0,
+			"z": 0
+		}
+	}
+}
