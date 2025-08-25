@@ -5,14 +5,14 @@
 		"name": "Skyblock Generation (BP)",
 		"description": "Enables void world generation while keeping biome mapping",
 		"uuid": "cd3dbc3f-4905-4e5c-aaf5-c0e8b70b7d21",
-		"version": [1, 0, 7]
+		"version": [1, 0, 11]
 	},
 	"modules": [
 		{
 			"type": "data",
-			"description": "Attempting bedrock replacement.",
+			"description": "Attempting chunk replacement with scatter feature.",
 			"uuid": "0d5b64bb-ab30-4a03-a5d5-aec96bb7ad6f",
-			"version": [1, 0, 7]
+			"version": [1, 0, 11]
 		}
 	],
 	"metadata": { "authors": ["Kadoman18"] }

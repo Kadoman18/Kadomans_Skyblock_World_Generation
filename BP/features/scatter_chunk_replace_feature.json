@@ -1,0 +1,28 @@
+{
+	"format_version": "1.21.40",
+
+	"minecraft:scatter_feature": {
+		"description": {
+			"identifier": "kado:scatter_chunk_replace_feature"
+		},
+
+		"places_feature": "kado:single_block_chunk_replace_feature",
+		"distribution": {
+			"scatter_chance": 100,
+			"iterations": "256",
+			"coordinate_eval_order": "yxz",
+			"y": {
+				"distribution": "uniform",
+				"extent": [-64, 250]
+			},
+			"x": {
+				"distribution": "uniform",
+				"extent": [0, 15]
+			},
+			"z": {
+				"distribution": "uniform",
+				"extent": [0, 15]
+			}
+		}
+	}
+}

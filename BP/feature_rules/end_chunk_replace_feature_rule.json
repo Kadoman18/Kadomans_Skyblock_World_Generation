@@ -1,0 +1,27 @@
+{
+	"format_version": "1.18.0",
+	"minecraft:feature_rules": {
+		"description": {
+			"identifier": "kado:end_chunk_replace_feature_rule",
+			"places_feature": "kado:scatter_chunk_replace_feature"
+		},
+		"conditions": {
+			"placement_pass": "final_pass",
+			"minecraft:biome_filter": []
+		},
+		"distribution": {
+			"scatter_chance": 100,
+			"iterations": "20000",
+			"coordinate_eval_order": "yxz",
+			"y": 0,
+			"x": {
+				"distribution": "fixed_grid",
+				"extent": [0, 15]
+			},
+			"z": {
+				"distribution": "fixed_grid",
+				"extent": [0, 15]
+			}
+		}
+	}
+}
