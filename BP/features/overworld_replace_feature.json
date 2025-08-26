@@ -9,11 +9,11 @@
 		"places_feature": "kado:overworld_block_filter",
 		"distribution": {
 			"scatter_chance": 100,
-			"iterations": "1",
+			"iterations": "300",
 			"coordinate_eval_order": "yxz",
 			"y": {
 				"distribution": "uniform",
-				"extent": [-64, 250]
+				"extent": [-64, 320]
 			},
 			"x": {
 				"distribution": "uniform",

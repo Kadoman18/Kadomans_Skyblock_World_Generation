@@ -17,18 +17,18 @@
 		},
 		"distribution": {
 			"scatter_chance": 100,
-			"iterations": "20000",
+			"iterations": "1",
 			"coordinate_eval_order": "yxz",
 			"y": {
-				"distribution": "uniform",
+				"distribution": "fixed_grid",
 				"extent": [0, 256]
 			},
 			"x": {
-				"distribution": "uniform",
+				"distribution": "fixed_grid",
 				"extent": [0, 15]
 			},
 			"z": {
-				"distribution": "uniform",
+				"distribution": "fixed_grid",
 				"extent": [0, 15]
 			}
 		}
