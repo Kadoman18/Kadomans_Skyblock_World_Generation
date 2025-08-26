@@ -2,8 +2,8 @@
 	"format_version": "1.18.0",
 	"minecraft:feature_rules": {
 		"description": {
-			"identifier": "kado:nether_and_overworld_chunk_replace_feature_rule",
-			"places_feature": "kado:scatter_chunk_replace_feature"
+			"identifier": "kado:overworld_chunk_replace_feature_rule",
+			"places_feature": "kado:overworld_chunk_replace_feature"
 		},
 		"conditions": {
 			"placement_pass": "final_pass",
@@ -286,42 +286,12 @@
 				{
 					"test": "has_biome_tag",
 					"operator": "==",
-					"value": "the_end"
-				},
-				{
-					"test": "has_biome_tag",
-					"operator": "==",
 					"value": "warm_ocean"
 				},
 				{
 					"test": "has_biome_tag",
 					"operator": "==",
 					"value": "pale_garden"
-				},
-				{
-					"test": "has_biome_tag",
-					"operator": "==",
-					"value": "basalt_deltas"
-				},
-				{
-					"test": "has_biome_tag",
-					"operator": "==",
-					"value": "crimson_forest"
-				},
-				{
-					"test": "has_biome_tag",
-					"operator": "==",
-					"value": "hell"
-				},
-				{
-					"test": "has_biome_tag",
-					"operator": "==",
-					"value": "soulsand_valley"
-				},
-				{
-					"test": "has_biome_tag",
-					"operator": "==",
-					"value": "warped_forest"
 				}
 			]
 		},
@@ -329,13 +299,16 @@
 			"scatter_chance": 100,
 			"iterations": "98000",
 			"coordinate_eval_order": "yxz",
-			"y": -64,
+			"y": {
+				"distribution": "uniform",
+				"extent": [-64, 320]
+			},
 			"x": {
-				"distribution": "fixed_grid",
+				"distribution": "uniform",
 				"extent": [0, 15]
 			},
 			"z": {
-				"distribution": "fixed_grid",
+				"distribution": "uniform",
 				"extent": [0, 15]
 			}
 		}

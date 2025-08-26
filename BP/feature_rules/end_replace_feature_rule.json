@@ -1,0 +1,36 @@
+{
+	"format_version": "1.18.0",
+	"minecraft:feature_rules": {
+		"description": {
+			"identifier": "kado:end_replace_feature_rule",
+			"places_feature": "kado:end_replace_feature"
+		},
+		"conditions": {
+			"placement_pass": "final_pass",
+			"minecraft:biome_filter": [
+				{
+					"test": "has_biome_tag",
+					"operator": "==",
+					"value": "the_end"
+				}
+			]
+		},
+		"distribution": {
+			"scatter_chance": 100,
+			"iterations": "20000",
+			"coordinate_eval_order": "yxz",
+			"y": {
+				"distribution": "uniform",
+				"extent": [0, 256]
+			},
+			"x": {
+				"distribution": "uniform",
+				"extent": [0, 15]
+			},
+			"z": {
+				"distribution": "uniform",
+				"extent": [0, 15]
+			}
+		}
+	}
+}

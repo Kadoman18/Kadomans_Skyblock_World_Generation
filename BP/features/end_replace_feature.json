@@ -3,13 +3,13 @@
 
 	"minecraft:scatter_feature": {
 		"description": {
-			"identifier": "kado:scatter_chunk_replace_feature"
+			"identifier": "kado:end_replace_feature"
 		},
 
-		"places_feature": "kado:single_block_chunk_replace_feature",
+		"places_feature": "kado:end_block_filter",
 		"distribution": {
 			"scatter_chance": 100,
-			"iterations": "256",
+			"iterations": "1",
 			"coordinate_eval_order": "yxz",
 			"y": {
 				"distribution": "uniform",
