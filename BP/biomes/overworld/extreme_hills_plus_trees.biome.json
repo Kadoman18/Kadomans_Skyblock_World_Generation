@@ -17,16 +17,17 @@
 				"builder": {
 					"type": "minecraft:overworld",
 					"sea_floor_depth": 64,
-					"sea_material": "minecraft:air",
 					"sea_floor_material": "minecraft:air",
 					"foundation_material": "minecraft:air",
 					"mid_material": "minecraft:air",
-					"top_material": "minecraft:air"
+					"top_material": "minecraft:air",
+					"sea_material": "minecraft:air"
 				}
 			},
 			"minecraft:overworld_generation_rules": {
-				"mutate_transformation": "extreme_hills_plus_trees_mutated"
+				"mutate_transformation": "minecraft:extreme_hills_plus_trees_mutated"
 			},
+
 			"minecraft:tags": {
 				"tags": [
 					"animal",
@@ -35,7 +36,7 @@
 					"monster",
 					"mountain",
 					"overworld",
-					"minecraft:ignore_automatic_features"
+					"spawns_cold_variant_farm_animals"
 				]
 			}
 		}

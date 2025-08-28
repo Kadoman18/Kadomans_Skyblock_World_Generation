@@ -10,9 +10,8 @@
 				"temperature": 1.0
 			},
 			"minecraft:mountain_parameters": {
-				"peaks_factor": 1,
 				"steep_material_adjustment": {
-					"material": "minecraft:air",
+					"material": "minecraft:stone",
 					"north_slopes": true,
 					"east_slopes": true
 				},
@@ -24,19 +23,31 @@
 				"builder": {
 					"type": "minecraft:overworld",
 					"sea_floor_depth": 64,
-					"sea_material": "minecraft:air",
 					"sea_floor_material": "minecraft:air",
 					"foundation_material": "minecraft:air",
 					"mid_material": "minecraft:air",
-					"top_material": "minecraft:air"
+					"top_material": "minecraft:air",
+					"sea_material": "minecraft:air"
 				}
+			},
+			"minecraft:surface_material_adjustments": {
+				"adjustments": [
+					{
+						"materials": {
+							"mid_material": "minecraft:air",
+							"top_material": "minecraft:air"
+						},
+						"noise_frequency_scale": 0.015,
+						"noise_range": [-0.0125, 0.0125]
+					}
+				]
 			},
 			"minecraft:tags": {
 				"tags": [
 					"mountains",
 					"monster",
 					"overworld",
-					"minecraft:ignore_automatic_features"
+					"spawns_cold_variant_farm_animals"
 				]
 			}
 		}

@@ -24,26 +24,29 @@
 				"builder": {
 					"type": "minecraft:overworld",
 					"sea_floor_depth": 64,
-					"sea_material": "minecraft:air",
 					"sea_floor_material": "minecraft:air",
 					"foundation_material": "minecraft:air",
 					"mid_material": "minecraft:air",
-					"top_material": "minecraft:air"
+					"top_material": "minecraft:air",
+					"sea_material": "minecraft:air"
 				}
 			},
 			"minecraft:overworld_generation_rules": {
-				"hills_transformation": "jungle_hills",
-				"mutate_transformation": "jungle_mutated",
+				"hills_transformation": "minecraft:jungle_hills",
+				"mutate_transformation": "minecraft:jungle_mutated",
 				"generate_for_climates": [["medium", 1]]
 			},
+
 			"minecraft:tags": {
 				"tags": [
 					"animal",
+					"has_structure_trail_ruins",
 					"jungle",
 					"monster",
 					"overworld",
 					"rare",
-					"minecraft:ignore_automatic_features"
+					"spawns_jungle_mobs",
+					"spawns_warm_variant_farm_animals"
 				]
 			}
 		}

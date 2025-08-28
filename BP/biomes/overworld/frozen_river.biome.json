@@ -17,19 +17,24 @@
 				"builder": {
 					"type": "minecraft:overworld",
 					"sea_floor_depth": 64,
-					"sea_material": "minecraft:air",
 					"sea_floor_material": "minecraft:air",
 					"foundation_material": "minecraft:air",
 					"mid_material": "minecraft:air",
-					"top_material": "minecraft:air"
+					"top_material": "minecraft:air",
+					"sea_material": "minecraft:air"
 				}
 			},
+
 			"minecraft:tags": {
 				"tags": [
 					"frozen",
 					"overworld",
 					"river",
-					"minecraft:ignore_automatic_features"
+					"spawns_cold_variant_farm_animals",
+					"spawns_cold_variant_frogs",
+					"spawns_river_mobs",
+					"spawns_snow_foxes",
+					"spawns_white_rabbits"
 				]
 			}
 		}

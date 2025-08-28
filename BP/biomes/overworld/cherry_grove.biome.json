@@ -2,16 +2,19 @@
 	"format_version": "1.20.60",
 	"minecraft:biome": {
 		"description": {
-			"identifier": "minecraft:river"
+			"identifier": "minecraft:cherry_grove"
 		},
 		"components": {
 			"minecraft:climate": {
-				"downfall": 0.5,
-				"snow_accumulation": [0.0, 0.125],
-				"temperature": 0.5
+				"downfall": 0.8,
+				"temperature": 0.3
 			},
-			"minecraft:overworld_height": {
-				"noise_type": "river"
+			"minecraft:map_tints": {
+				"grass": {
+					"type": "tint",
+					"tint": "#b6db61"
+				},
+				"foliage": "#b6db61"
 			},
 			"minecraft:surface_builder": {
 				"builder": {
@@ -24,14 +27,18 @@
 					"sea_material": "minecraft:air"
 				}
 			},
-
+			"minecraft:mountain_parameters": {
+				"top_slide": {
+					"enabled": false
+				}
+			},
 			"minecraft:tags": {
 				"tags": [
+					"mountains",
+					"monster",
 					"overworld",
-					"spawns_more_frequent_drowned",
-					"spawns_reduced_water_ambient_mobs",
-					"spawns_river_mobs",
-					"river"
+					"cherry_grove",
+					"bee_habitat"
 				]
 			}
 		}

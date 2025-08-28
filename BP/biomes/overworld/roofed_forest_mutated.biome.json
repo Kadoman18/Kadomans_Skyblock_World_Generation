@@ -1,5 +1,5 @@
 {
-	"format_version": "1.20.60",
+	"format_version": "1.21.100",
 	"minecraft:biome": {
 		"description": {
 			"identifier": "minecraft:roofed_forest_mutated"
@@ -17,13 +17,17 @@
 				"builder": {
 					"type": "minecraft:overworld",
 					"sea_floor_depth": 64,
-					"sea_material": "minecraft:air",
 					"sea_floor_material": "minecraft:air",
 					"foundation_material": "minecraft:air",
 					"mid_material": "minecraft:air",
-					"top_material": "minecraft:air"
+					"top_material": "minecraft:air",
+					"sea_material": "minecraft:air"
 				}
 			},
+			"minecraft:humidity": {
+				"is_humid": true
+			},
+
 			"minecraft:tags": {
 				"tags": [
 					"animal",
@@ -31,8 +35,7 @@
 					"monster",
 					"mutated",
 					"roofed",
-					"overworld_generation",
-					"minecraft:ignore_automatic_features"
+					"overworld_generation"
 				]
 			}
 		}
