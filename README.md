@@ -1,0 +1,1 @@
+This pack replaces the default world gen with a void. Everything is first generated, then replaced with air, allowing for an infinite void world, while retaining the structure bounding boxes and biome mapping.

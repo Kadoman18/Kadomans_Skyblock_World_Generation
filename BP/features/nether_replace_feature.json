@@ -1,27 +1,24 @@
 {
 	"format_version": "1.21.40",
-
 	"minecraft:scatter_feature": {
 		"description": {
 			"identifier": "kado:nether_replace_feature"
 		},
-
 		"places_feature": "kado:nether_block_filter",
 		"distribution": {
+			"iterations": 32768,
 			"scatter_chance": 100,
-			"iterations": "300",
-			"coordinate_eval_order": "yxz",
-			"y": {
-				"distribution": "uniform",
-				"extent": [0, 128]
-			},
 			"x": {
-				"distribution": "uniform",
+				"distribution": "fixed_grid",
 				"extent": [0, 15]
 			},
 			"z": {
-				"distribution": "uniform",
+				"distribution": "fixed_grid",
 				"extent": [0, 15]
+			},
+			"y": {
+				"distribution": "fixed_grid",
+				"extent": [0, 319]
 			}
 		}
 	}

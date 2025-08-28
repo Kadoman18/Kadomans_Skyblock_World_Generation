@@ -1,0 +1,5 @@
+*.DS_Store
+/Skyblock World Creator.mcpack
+/manifest.json alias
+/old_features
+/old_biomes

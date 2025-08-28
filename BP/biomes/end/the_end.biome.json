@@ -1,0 +1,27 @@
+{
+	"format_version": "1.20.60",
+	"minecraft:biome": {
+		"description": {
+			"identifier": "minecraft:the_end"
+		},
+		"components": {
+			"minecraft:climate": {
+				"downfall": 0.5,
+				"snow_accumulation": [0.0, 0.125],
+				"temperature": 0.5
+			},
+			"minecraft:surface_builder": {
+				"builder": {
+					"type": "minecraft:the_end"
+				}
+			},
+			"minecraft:tags": {
+				"tags": [
+					"minecraft:the_end_surface",
+					"the_end",
+					"minecraft:ignore_automatic_features"
+				]
+			}
+		}
+	}
+}
