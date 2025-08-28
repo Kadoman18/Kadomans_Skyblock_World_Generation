@@ -9,7 +9,6 @@
 		"enforce_survivability_rules": false,
 		"may_replace": [
 			"FILTER:END_LOADED",
-			"minecraft:air",
 			"minecraft:endstone",
 			"minecraft:chorus_plant",
 			"minecraft:chorus_flower",
