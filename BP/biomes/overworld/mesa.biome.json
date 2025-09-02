@@ -22,11 +22,11 @@
 				"builder": {
 					"type": "minecraft:mesa",
 					"bryce_pillars": false,
-					"clay_material": "minecraft:white_terracotta",
+					"clay_material": "minecraft:air",
 					"sea_floor_depth": 64,
 					"sea_floor_material": "minecraft:air",
 					"foundation_material": "minecraft:air",
-					"hard_clay_material": "minecraft:hardened_clay",
+					"hard_clay_material": "minecraft:air",
 					"has_forest": false,
 					"mid_material": "minecraft:air",
 					"top_material": "minecraft:air",

@@ -24,10 +24,6 @@
 					"sea_material": "minecraft:air"
 				}
 			},
-			"minecraft:overworld_generation_rules": {
-				"mutate_transformation": "minecraft:savanna_plateau_mutated"
-			},
-
 			"minecraft:tags": {
 				"tags": [
 					"animal",
