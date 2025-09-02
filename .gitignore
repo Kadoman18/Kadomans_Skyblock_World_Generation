@@ -1,4 +1,4 @@
 *.DS_Store
-/Skyblock World Creator.mcpack
-/manifest.json alias
-/old
+*.mcpack
+old
+manifest.json alias
