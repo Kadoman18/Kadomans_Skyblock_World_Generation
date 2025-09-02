@@ -1,5 +1,6 @@
 {
 	"format_version": "1.21.40",
+
 	"minecraft:single_block_feature": {
 		"description": {
 			"identifier": "kado:end_block_filter"
@@ -8,29 +9,25 @@
 		"enforce_placement_rules": false,
 		"enforce_survivability_rules": false,
 		"may_replace": [
-			"FILTER:END_LOADED",
-			"minecraft:air",
-			"minecraft:brewing_stand",
-			"minecraft:chest",
-			"minecraft:chorus_flower",
+			"minecraft:endstone",
 			"minecraft:chorus_plant",
-			"minecraft:dragon_egg",
-			"minecraft:dragon_head",
-			"minecraft:end_bricks",
-			"minecraft:end_gateway",
+			"minecraft:chorus_flower",
+			"minecraft:bedrock",
 			"minecraft:end_portal",
+			"minecraft:end_gateway",
+			"minecraft:chest",
 			"minecraft:end_rod",
-			"minecraft:end_stone",
+			"minecraft:end_stone_bricks",
 			"minecraft:ender_chest",
-			"minecraft:fire",
-			"minecraft:frame",
-			"minecraft:ladder",
+			"minecraft:item_frame",
+			"minecraft:dragon_wall_head",
+			"minecraft:wall_banner",
 			"minecraft:magenta_stained_glass",
+			"minecraft:ladder",
 			"minecraft:purpur_block",
-			"minecraft:purpur_pillar",
 			"minecraft:purpur_slab",
 			"minecraft:purpur_stairs",
-			"minecraft:wall_banner"
+			"minecraft:purpur_pillar"
 		]
 	}
 }

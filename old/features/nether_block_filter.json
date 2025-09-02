@@ -1,0 +1,52 @@
+{
+	"format_version": "1.21.40",
+
+	"minecraft:single_block_feature": {
+		"description": {
+			"identifier": "kado:nether_block_filter"
+		},
+		"places_block": "minecraft:air",
+		"enforce_placement_rules": false,
+		"enforce_survivability_rules": false,
+		"may_replace": [
+			"minecraft:ancient_debris",
+			"minecraft:barrel",
+			"minecraft:basalt",
+			"minecraft:bedrock",
+			"minecraft:blackstone",
+			"minecraft:bone_block",
+			"minecraft:brown_mushroom",
+			"minecraft:chain",
+			"minecraft:chest",
+			"minecraft:crimson_fungus",
+			"minecraft:crimson_nylium",
+			"minecraft:crimson_roots",
+			"minecraft:crimson_stem",
+			"minecraft:crying_obsidian",
+			"minecraft:glowstone",
+			"minecraft:gravel",
+			"minecraft:iron_bars",
+			"minecraft:lava",
+			"minecraft:magma_block",
+			"minecraft:nether_gold_ore",
+			"minecraft:nether_quartz_ore",
+			"minecraft:nether_sprouts",
+			"minecraft:nether_wart_block",
+			"minecraft:netherrack",
+			"minecraft:obsidian",
+			"minecraft:red_mushroom",
+			"minecraft:shroomlight",
+			"minecraft:smooth_basalt",
+			"minecraft:soul_fire",
+			"minecraft:soul_sand",
+			"minecraft:soul_soil",
+			"minecraft:twisting_vines",
+			"minecraft:warped_fungus",
+			"minecraft:warped_nylium",
+			"minecraft:warped_roots",
+			"minecraft:warped_stem",
+			"minecraft:warped_wart_block",
+			"minecraft:weeping_vines"
+		]
+	}
+}

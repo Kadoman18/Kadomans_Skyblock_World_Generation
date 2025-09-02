@@ -1,0 +1,11 @@
+{
+	"format_version": "1.12",
+	"minecraft:recipe_furnace": {
+		"description": {
+			"identifier": "kado:blast_tuff"
+		},
+		"tags": ["blast_furnace"],
+		"input": "minecraft:andesite",
+		"output": "minecraft:tuff"
+	}
+}

@@ -1,0 +1,25 @@
+{
+	"format_version": "1.19.10",
+	"minecraft:recipe_shapeless": {
+		"description": {
+			"identifier": "kado:deepslate_coal_ore"
+		},
+		"tags": ["crafting_table"],
+		"ingredients": [
+			{
+				"item": "minecraft:coal",
+				"count": 3
+			},
+			{
+				"item": "minecraft:cobbled_deepslate",
+				"count": 1
+			}
+		],
+		"result": [
+			{
+				"item": "minecraft:deepslate_coal_ore"
+			}
+		],
+		"group": "nature"
+	}
+}

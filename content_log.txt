@@ -1,0 +1,27 @@
+[BiomeRegistry][error]-Invalid Biome file biomes/overworld/mega_taiga.biome.json:  -> minecraft:biome -> description -> identifier:  identifier has an upper case letter or does not specify any namespace
+
+[BiomeRegistry][error]-Failed to load biome document: biomes/overworld/mega_taiga.biome.json
+
+[BiomeRegistry][error]-Invalid Biome file biomes/overworld/redwood_taiga_mutated.biome.json:  -> minecraft:biome -> description -> identifier:  identifier has an upper case letter or does not specify any namespace
+
+[BiomeRegistry][error]-Failed to load biome document: biomes/overworld/redwood_taiga_mutated.biome.json
+
+[BiomeRegistry][error]-Invalid Biome file biomes/overworld/savanna_mutated.biome.json:  -> minecraft:biome -> description -> identifier:  identifier has an upper case letter or does not specify any namespace
+
+[BiomeRegistry][error]-Failed to load biome document: biomes/overworld/savanna_mutated.biome.json
+
+[BiomeRegistry][error]-Skyblock Testing 68 | biomes_server | Invalid Biome file biomes/overworld/mega_taiga.biome.json:  -> minecraft:biome -> description -> identifier:  identifier has an upper case letter or does not specify any namespace
+
+[BiomeRegistry][error]-Skyblock Testing 68 | biomes_server | Failed to load biome document: biomes/overworld/mega_taiga.biome.json
+
+[BiomeRegistry][error]-Skyblock Testing 68 | biomes_server | Invalid Biome file biomes/overworld/redwood_taiga_mutated.biome.json:  -> minecraft:biome -> description -> identifier:  identifier has an upper case letter or does not specify any namespace
+
+[BiomeRegistry][error]-Skyblock Testing 68 | biomes_server | Failed to load biome document: biomes/overworld/redwood_taiga_mutated.biome.json
+
+[BiomeRegistry][error]-Skyblock Testing 68 | biomes_server | Invalid Biome file biomes/overworld/savanna_mutated.biome.json:  -> minecraft:biome -> description -> identifier:  identifier has an upper case letter or does not specify any namespace
+
+[BiomeRegistry][error]-Skyblock Testing 68 | biomes_server | Failed to load biome document: biomes/overworld/savanna_mutated.biome.json
+
+[Json][error]-Unknown block during Deferred BlockDescriptor resolution: FILTER:OVERWORLD_LOADED
+
+

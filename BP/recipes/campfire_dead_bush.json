@@ -1,0 +1,11 @@
+{
+	"format_version": "1.12",
+	"minecraft:recipe_furnace": {
+		"description": {
+			"identifier": "kado:campfire_dead_bush"
+		},
+		"tags": ["campfire", "soul_campfire"],
+		"input": "minecraft:sapling",
+		"output": "minecraft:deadbush"
+	}
+}
