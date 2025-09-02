@@ -1,9 +1,17 @@
 {
-	"format_version": "1.19.10",
+	"format_version": "1.21.50",
 	"minecraft:recipe_shapeless": {
 		"description": {
 			"identifier": "kado:coal_ore"
 		},
+		"unlock": [
+			{
+				"item": "minecraft:coal"
+			},
+			{
+				"item": "minecraft:stone"
+			}
+		],
 		"tags": ["crafting_table"],
 		"ingredients": [
 			{

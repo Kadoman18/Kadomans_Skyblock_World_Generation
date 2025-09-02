@@ -1,14 +1,22 @@
 {
-	"format_version": "1.19.10",
+	"format_version": "1.21.50",
 	"minecraft:recipe_shapeless": {
 		"description": {
 			"identifier": "kado:deepslate_gold_ore"
 		},
+		"unlock": [
+			{
+				"item": "minecraft:gold_ingot"
+			},
+			{
+				"item": "minecraft:cobbled_deepslate"
+			}
+		],
 		"tags": ["crafting_table"],
 		"ingredients": [
 			{
-				"count": 3,
-				"item": "minecraft:gold_ingot"
+				"item": "minecraft:gold_ingot",
+				"count": 3
 			},
 			{
 				"item": "minecraft:cobbled_deepslate",

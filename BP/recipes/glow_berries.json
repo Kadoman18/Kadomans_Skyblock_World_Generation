@@ -1,9 +1,17 @@
 {
-	"format_version": "1.12",
+	"format_version": "1.21.50",
 	"minecraft:recipe_shapeless": {
 		"description": {
 			"identifier": "kado:glow_berries"
 		},
+		"unlock": [
+			{
+				"item": "minecraft:sweet_berries"
+			},
+			{
+				"item": "minecraft:glow_ink_sac"
+			}
+		],
 		"tags": ["crafting_table"],
 		"ingredients": [
 			{

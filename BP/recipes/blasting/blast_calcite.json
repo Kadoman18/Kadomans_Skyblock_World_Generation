@@ -1,9 +1,14 @@
 {
-	"format_version": "1.12",
+	"format_version": "1.21.50",
 	"minecraft:recipe_furnace": {
 		"description": {
 			"identifier": "kado:blast_calcite"
 		},
+		"unlock": [
+			{
+				"item": "minecraft:diorite"
+			}
+		],
 		"tags": ["blast_furnace"],
 		"input": "minecraft:diorite",
 		"output": "minecraft:calcite"

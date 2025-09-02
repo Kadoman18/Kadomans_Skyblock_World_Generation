@@ -1,14 +1,22 @@
 {
-	"format_version": "1.19.10",
+	"format_version": "1.21.50",
 	"minecraft:recipe_shapeless": {
 		"description": {
 			"identifier": "kado:deepslate_lapis_ore"
 		},
+		"unlock": [
+			{
+				"item": "minecraft:lapis_block"
+			},
+			{
+				"item": "minecraft:stone"
+			}
+		],
 		"tags": ["crafting_table"],
 		"ingredients": [
 			{
-				"count": 2,
-				"item": "minecraft:lapis_block"
+				"item": "minecraft:lapis_block",
+				"count": 2
 			},
 			{
 				"item": "minecraft:stone",
