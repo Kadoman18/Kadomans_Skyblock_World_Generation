@@ -45,7 +45,7 @@
 				]
 			},
 			"minecraft:overworld_generation_rules": {
-				"mutate_transformation": "redwood_taiga_mutated",
+				"mutate_transformation": "minecraft:redwood_taiga_mutated",
 				"generate_for_climates": [["cold", 1]]
 			},
 

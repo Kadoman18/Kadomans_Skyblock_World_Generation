@@ -1,9 +1,0 @@
-[BiomeRegistry][error]-Testing | biomes_server | minecraft:mega_taiga | minecraft:overworld_generation_rules | hills_transformation | No biome found with name 'mega_taiga_hills'
-
-[Json][error]- -> minecraft:biome -> components -> minecraft:overworld_generation_rules -> hills_transformation:  Missing referenced asset mega_taiga_hills
-
-[Json][error]- -> minecraft:biome -> components -> minecraft:overworld_generation_rules -> mutate_transformation:  Missing referenced asset redwood_taiga_mutated
-
-[Json][error]-Unknown block during Deferred BlockDescriptor resolution: FILTER:OVERWORLD_LOADED
-
-
