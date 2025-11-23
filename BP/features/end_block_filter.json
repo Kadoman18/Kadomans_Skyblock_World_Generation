@@ -8,7 +8,6 @@
 		"enforce_placement_rules": false,
 		"enforce_survivability_rules": false,
 		"may_replace": [
-			"FILTER:END_LOADED",
 			"minecraft:air",
 			"minecraft:brewing_stand",
 			"minecraft:chest",

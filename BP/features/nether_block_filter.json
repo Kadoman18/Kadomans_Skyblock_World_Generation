@@ -8,7 +8,6 @@
 		"enforce_placement_rules": false,
 		"enforce_survivability_rules": false,
 		"may_replace": [
-			"FILTER:NETHER_LOADED",
 			"minecraft:air",
 			"minecraft:ancient_debris",
 			"minecraft:basalt",
@@ -21,6 +20,7 @@
 			"minecraft:brown_mushroom",
 			"minecraft:chain",
 			"minecraft:chest",
+			"minecraft:chiseled_polished_blackstone",
 			"minecraft:cracked_polished_blackstone_bricks",
 			"minecraft:crimson_button",
 			"minecraft:crimson_door",
