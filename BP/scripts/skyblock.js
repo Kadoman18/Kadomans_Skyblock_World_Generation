@@ -61,7 +61,7 @@ const starterIsland = {
 	},
 	// Chest
 	chest: {
-		block: "minecraft:chest[facing=north]",
+		block: "minecraft:chest",
 		offset: {
 			from: { x: 0, y: 0, z: 4 },
 			to: { x: 0, y: 0, z: 4 },
@@ -130,8 +130,8 @@ const starterLoot = {
 */
 
 // Build Starter Island
-function applyPlatform(dimension, island, sx, sy, sz) {
-	for (const key in island) {
+function buildIsland(dimension, island, sx, sy, sz) {
+	for (let key in island) {
 		const iteration = island[key];
 
 		const from = {
@@ -160,7 +160,7 @@ function fillChest(dimension, location, offset, lootTable) {
 	if (chestBlock && chestBlock.typeId === "minecraft:chest") {
 		const chestEntity = chestBlock.getComponent("minecraft:inventory");
 		if (chestEntity) {
-			for (key in lootTable) {
+			for (let key in lootTable) {
 				const iteration = lootTable[key];
 				chestEntity.container.setItem(
 					iteration.slot,
@@ -171,23 +171,35 @@ function fillChest(dimension, location, offset, lootTable) {
 	}
 }
 
-// Main Loop
-const setup_id = system.runInterval(() => {
-	const overworld = world.getDimension("overworld");
+world.afterEvents.playerSpawn.subscribe((eventData) => {
+	let { player, initialSpawn } = eventData;
+	if (!initialSpawn) return;
+	system.run(() => {
+		const overworld = world.getDimension("overworld");
+		const spawnX = 0;
+		const spawnY = 65;
+		const spawnZ = 0;
+		const spawn = { x: spawnX, y: spawnY, z: spawnZ };
 
-	let spawn = world.getDefaultSpawnLocation();
-	const spawnX = Math.floor(spawn.x);
-	const spawnY = 65;
-	const spawnZ = Math.floor(spawn.z);
-	spawn = { x: spawnX, y: spawnY, z: spawnZ };
+		// Teleport player to 0, 65, 0 and set worldspawn
+		overworld.runCommand(
+			`tp ${player.name} ${spawnX} ${spawnY + 1} ${spawnZ}`
+		);
+		overworld.runCommand(`setworldspawn ${spawnX} ${spawnY} ${spawnZ}`);
 
-	applyPlatform(overworld, starterIsland, spawnX, spawnY, spawnZ);
-	// Fill chest after generation
-	const chestLoc = { x: 0, y: 0, z: 4 };
-	fillChest(overworld, spawn, chestLoc, starterLoot);
-}, 20);
+		// Build the starter island
+		system.runTimeout(() => {
+			buildIsland(overworld, starterIsland, spawnX, spawnY, spawnZ);
+		}, 5);
 
-// Cancel loop on block break
-world.beforeEvents.playerBreakBlock.subscribe(() => {
-	system.clearRun(setup_id);
+		// Fill chest after generation
+		const chestLoc = { x: 0, y: 0, z: 4 };
+		system.runTimeout(() => {
+			fillChest(overworld, spawn, chestLoc, starterLoot);
+		}, 5);
+	});
+});
+
+world.afterEvents.playerDimensionChange.subscribe((eventData) => {
+	const { player, fromDimension, toDimension } = eventData;
 });
