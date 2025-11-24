@@ -1,4 +1,4 @@
-import { system, world, BlockVolume } from "@minecraft/server";
+import { system, world, BlockVolume, ItemStack } from "@minecraft/server";
 
 // East: +x (Left)
 // West: -x (Right)
@@ -160,13 +160,15 @@ function fillChest(dimension, location, offset, lootTable) {
 	if (chestBlock && chestBlock.typeId === "minecraft:chest") {
 		const chestEntity = chestBlock.getComponent("minecraft:inventory");
 		if (chestEntity) {
-			for (let key in lootTable) {
-				const iteration = lootTable[key];
-				chestEntity.container.setItem(
-					iteration.slot,
-					new ItemStack(iteration.item, 1)
-				);
-			}
+			system.run(() => {
+				for (let key in lootTable) {
+					const iteration = lootTable[key];
+					chestEntity.container.setItem(
+						iteration.slot,
+						new ItemStack(iteration.item, 1)
+					);
+				}
+			});
 		}
 	}
 }
