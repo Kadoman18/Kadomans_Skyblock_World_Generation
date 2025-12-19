@@ -62,6 +62,10 @@ const starterIsland = {
 	// Chest
 	chest: {
 		block: "minecraft:chest",
+		perm: {
+			perm: "minecraft:cardinal_direction",
+			value: "north",
+		},
 		offset: {
 			from: { x: 0, y: 0, z: 4 },
 			to: { x: 0, y: 0, z: 4 },
@@ -118,6 +122,60 @@ const starterLoot = {
 	},
 };
 
+const sandIsland = {
+	// Cactus
+	chest: {
+		block: "minecraft:cactus",
+		offset: {
+			from: { x: 1, y: 2, z: -68 },
+			to: { x: 1, y: 0, z: -68 },
+		},
+	},
+	// Chest
+	chest: {
+		block: "minecraft:chest",
+		perm: {
+			perm: "minecraft:cardinal_direction",
+			value: "south",
+		},
+		offset: {
+			from: { x: 0, y: 0, z: -67 },
+			to: { x: 0, y: 0, z: -67 },
+		},
+	},
+	// Sand
+	sand: {
+		block: "minecraft:sand",
+		offset: {
+			from: { x: -1, y: -1, z: -66 },
+			to: { x: 1, y: -3, z: -68 },
+		},
+	},
+	// Sculk
+	sculk: {
+		block: "minecraft:sculk_vein",
+		perm: {
+			perm: "multi_face_direction_bits",
+			value: 2,
+		},
+		offset: {
+			from: { x: -1, y: -4, z: -66 },
+			to: { x: 1, y: -4, z: -68 },
+		},
+	},
+};
+
+const sandLoot = {
+	ice: {
+		slot: 11,
+		item: "minecraft:ice",
+	},
+	lava: {
+		slot: 15,
+		item: "minecraft:lava_bucket",
+	},
+};
+
 /*
 
 	TEMP: {
@@ -145,8 +203,27 @@ function buildIsland(dimension, island, sx, sy, sz) {
 			z: sz + iteration.offset.to.z,
 		};
 
-		const volume = new BlockVolume(from, to);
-		dimension.fillBlocks(volume, iteration.block);
+		// No block permutations
+		if (!iteration.perm) {
+			const volume = new BlockVolume(from, to);
+			dimension.fillBlocks(volume, iteration.block);
+			continue;
+		}
+
+		// Block permutation specification
+		const permId = iteration.perm.perm;
+		const permValue = iteration.perm.value;
+
+		for (let x = from.x; x <= to.x; x++) {
+			for (let y = from.y; y <= to.y; y++) {
+				for (let z = from.z; z <= to.z; z++) {
+					const block = dimension.getBlock({ x, y, z });
+					if (!block) continue;
+					const blockPerm = block.permutation.withState(permId, permValue);
+					block.setPermutation(blockPerm);
+				}
+			}
+		}
 	}
 }
 
@@ -173,33 +250,41 @@ function fillChest(dimension, location, offset, lootTable) {
 	}
 }
 
-world.afterEvents.playerSpawn.subscribe((eventData) => {
-	let { player, initialSpawn } = eventData;
-	if (!initialSpawn) return;
-	system.run(() => {
-		const overworld = world.getDimension("overworld");
-		const spawnX = 0;
-		const spawnY = 65;
-		const spawnZ = 0;
-		const spawn = { x: spawnX, y: spawnY, z: spawnZ };
+const setup_id = system.runInterval(() => {
+	const overworld = world.getDimension("overworld");
+	const spawn = { x: 0, y: 65, z: 0 };
 
-		// Teleport player to 0, 65, 0 and set worldspawn
-		overworld.runCommand(
-			`tp ${player.name} ${spawnX} ${spawnY + 1} ${spawnZ}`
-		);
-		overworld.runCommand(`setworldspawn ${spawnX} ${spawnY} ${spawnZ}`);
+	// Teleport player to 0, 65, 0 and set worldspawn
+	overworld.runCommand(
+		`tp ${player.name} ${spawn.x} ${spawn.y + 1} ${spawn.z}`
+	);
+	overworld.runCommand(`setworldspawn ${spawn.x} ${spawn.y} ${spawn.z}`);
 
-		// Build the starter island
-		system.runTimeout(() => {
-			buildIsland(overworld, starterIsland, spawnX, spawnY, spawnZ);
-		}, 5);
+	// Build the starter island
+	system.runTimeout(() => {
+		buildIsland(overworld, starterIsland, spawn.x, spawn.y, spawn.z);
+	}, 5);
 
-		// Fill chest after generation
-		const chestLoc = { x: 0, y: 0, z: 4 };
-		system.runTimeout(() => {
-			fillChest(overworld, spawn, chestLoc, starterLoot);
-		}, 5);
-	});
+	// Fill chest after generation
+	const starterChest = { x: 0, y: 0, z: 4 };
+	system.runTimeout(() => {
+		fillChest(overworld, spawn, starterChest, starterLoot);
+	}, 5);
+
+	// Build the sand island
+	system.runTimeout(() => {
+		buildIsland(overworld, sandIsland, spawn.x, spawn.y, spawn.z);
+	}, 5);
+
+	// Fill sand island chest
+	const sandChest = { x: 0, y: 0, z: -67 };
+	system.runTimeout(() => {
+		fillChest(overworld, spawn, sandChest, sandLoot);
+	}, 5);
+}, 20);
+
+world.beforeEvents.playerBreakBlock.subscribe(() => {
+	system.clearRun(setup_id);
 });
 
 world.afterEvents.playerDimensionChange.subscribe((eventData) => {
