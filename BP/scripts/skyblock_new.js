@@ -281,9 +281,10 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 	}
 
 	// Build Starter Island
-	function buildIsland(dimension, island, afterTicks) {
+	function buildIsland(island, afterTicks) {
 		system.runTimeout(() => {
 			const origin = calculateOffsets(spawn, island.origin_offset);
+			const dimension = island.dimension
 
 			debugMsg(
 				`${island.name} origin located at ${coordsString(origin, true)}`
