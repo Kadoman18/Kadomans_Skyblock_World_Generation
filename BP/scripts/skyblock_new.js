@@ -355,8 +355,11 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 		}
 	}
 
+	const dontFall = system.runInterval(() => {
+		teleportPlayers(player, starterIsland);
+	}, 5);
+
 	for (const island of islands) {
-		teleportPlayers(player, island);
 		tick(player, island);
 		system.runTimeout(() => {
 			buildIsland(overworld, island);
@@ -371,4 +374,7 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 			)}`
 		);
 	}
+
+	system.waitTicks(90);
+	system.clearRun(dontFall);
 });
