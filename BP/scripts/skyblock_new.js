@@ -219,6 +219,28 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 		};
 	}
 
+	function tick(player, island) {
+		const location = calculateOffsets(spawn, island.origin_offset);
+		player.runCommand(
+			`tickingarea add circle ${location.x} ${location.y} ${location.z} 2`
+		);
+		if (debugging) {
+			console.log(
+				`Ticking area created at\nX: ${location.x}, Y: ${location.y}, Z: ${location.z}`
+			);
+		}
+		system.runTimeout(() => {
+			player.runCommand(
+				`tickingarea remove ${location.x} ${location.y} ${location.z}`
+			);
+			if (debugging) {
+				console.log(
+					`Ticking area removed at\nX: ${location.x}, Y: ${location.y}, Z: ${location.z}`
+				);
+			}
+		}, 100);
+	}
+
 	function teleportPlayers(player, island) {
 		const location = calculateOffsets(spawn, island.origin_offset);
 		if (player.tryTeleport(location)) {
@@ -265,7 +287,6 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 			}
 
 			// No block permutations
-
 			const volume = new BlockVolume(from, to);
 			dimension.fillBlocks(volume, iteration.block);
 
@@ -274,6 +295,7 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 				setBlockWithPerms(iteration, from, to, dimension);
 			}
 		}
+		teleportPlayers(player, island);
 		if (island.loot) {
 			fillChest(dimension, island);
 		}
@@ -335,9 +357,10 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 
 	for (const island of islands) {
 		teleportPlayers(player, island);
+		tick(player, island);
 		system.runTimeout(() => {
 			buildIsland(overworld, island);
-		}, 20);
+		}, 90);
 	}
 
 	world.setDynamicProperty("kado:overworld_unlocked", true);
