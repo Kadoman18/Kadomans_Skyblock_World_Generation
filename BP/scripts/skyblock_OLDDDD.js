@@ -188,26 +188,26 @@ const sandLoot = {
 */
 
 // Build Starter Island
-function buildIsland(dimension, island, sx, sy, sz) {
+function buildIsland(dimension, island, spawn) {
 	for (let key in island) {
 		const iteration = island[key];
 
 		const from = {
-			x: sx + iteration.offset.from.x,
-			y: sy + iteration.offset.from.y,
-			z: sz + iteration.offset.from.z,
+			x: spawn.x + iteration.offset.from.x,
+			y: spawn.y + iteration.offset.from.y,
+			z: spawn.z + iteration.offset.from.z,
 		};
 		const to = {
-			x: sx + iteration.offset.to.x,
-			y: sy + iteration.offset.to.y,
-			z: sz + iteration.offset.to.z,
+			x: spawn.x + iteration.offset.to.x,
+			y: spawn.y + iteration.offset.to.y,
+			z: spawn.z + iteration.offset.to.z,
 		};
 
 		// No block permutations
 		if (!iteration.perm) {
 			const volume = new BlockVolume(from, to);
-			dimension.fillBlocks(volume, iteration.block);
-			continue;
+                        dimension.fillBlocks(volume, iteration.block);
+                        continue
 		}
 
 		// Block permutation specification
@@ -253,6 +253,7 @@ function fillChest(dimension, location, offset, lootTable) {
 const setup_id = system.runInterval(() => {
 	const overworld = world.getDimension("overworld");
 	const spawn = { x: 0, y: 65, z: 0 };
+	const player = world.getAllPlayers()[0];
 
 	// Teleport player to 0, 65, 0 and set worldspawn
 	overworld.runCommand(
@@ -269,17 +270,6 @@ const setup_id = system.runInterval(() => {
 	const starterChest = { x: 0, y: 0, z: 4 };
 	system.runTimeout(() => {
 		fillChest(overworld, spawn, starterChest, starterLoot);
-	}, 5);
-
-	// Build the sand island
-	system.runTimeout(() => {
-		buildIsland(overworld, sandIsland, spawn.x, spawn.y, spawn.z);
-	}, 5);
-
-	// Fill sand island chest
-	const sandChest = { x: 0, y: 0, z: -67 };
-	system.runTimeout(() => {
-		fillChest(overworld, spawn, sandChest, sandLoot);
 	}, 5);
 }, 20);
 
