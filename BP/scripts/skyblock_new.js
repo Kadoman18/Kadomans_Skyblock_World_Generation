@@ -373,17 +373,17 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 				}
 			});
 			debugMsg(
-				`Chest found and filled at location: ${coordsString(
-					island.loot.chestLoc,
-					true
-				)}`
+				`Chest found and filled at location: ${calculateOffsets(
+				calculateOffsets(spawn, island.origin_offset),
+				island.loot.chestLoc
+			)}`
 			);
 		} else {
 			debugMsg(
-				`Chest not found at location: ${coordsString(
-					island.loot.chestLoc,
-					true
-				)}`
+				`Chest not found at location: ${calculateOffsets(
+				calculateOffsets(spawn, island.origin_offset),
+				island.loot.chestLoc
+			)}`
 			);
 		}
 	}
