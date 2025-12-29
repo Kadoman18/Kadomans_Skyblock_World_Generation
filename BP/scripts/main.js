@@ -1,2 +1,2 @@
 import "./skyblock.js";
-console.warn(`Skyblock Script Loaded`);
+console.log(`Skyblock Script Loaded`);
