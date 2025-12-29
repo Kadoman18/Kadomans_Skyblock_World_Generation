@@ -547,8 +547,10 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 		z: world.getDefaultSpawnLocation().z,
 	};
 
-	debugMsg(`Spawn Found: ${coordsString(spawn, true)}`);
-	debugMsg(`${player.name} awaiting island generation.`);
+	debugMsg(
+		`Spawn Found: ${coordsString(spawn, true)}\n
+		${player.name} awaiting island generation.`
+	);
 
 	suspendPlayer(
 		{ x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 },
