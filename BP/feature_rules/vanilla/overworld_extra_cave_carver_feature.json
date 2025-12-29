@@ -1,12 +1,12 @@
 {
-	"format_version": "1.13.0",
+	"format_version": "1.16.100",
 	"minecraft:feature_rules": {
 		"description": {
-			"identifier": "minecraft:overworld_amethyst_geode_feature",
+			"identifier": "minecraft:overworld_extra_cave_carver_feature",
 			"places_feature": "kado:overworld_block_filter"
 		},
 		"conditions": {
-			"placement_pass": "after_surface_pass",
+			"placement_pass": "pregeneration_pass",
 			"minecraft:biome_filter": [
 				{
 					"any_of": [
@@ -23,19 +23,6 @@
 					]
 				}
 			]
-		},
-		"distribution": {
-			"iterations": 1,
-			"scatter_chance": {
-				"numerator": 1,
-				"denominator": 24
-			},
-			"x": 0,
-			"y": {
-				"distribution": "uniform",
-				"extent": [-58, 30]
-			},
-			"z": 0
 		}
 	}
 }

@@ -2,25 +2,16 @@
 	"format_version": "1.16.0",
 	"minecraft:feature_rules": {
 		"description": {
-			"identifier": "minecraft:overworld_underground_glow_lichen_feature",
+			"identifier": "minecraft:sculk_patch_feature",
 			"places_feature": "kado:overworld_block_filter"
 		},
 		"conditions": {
-			"placement_pass": "after_underground_pass",
+			"placement_pass": "after_surface_pass",
 			"minecraft:biome_filter": [
 				{
-					"any_of": [
-						{
-							"test": "has_biome_tag",
-							"operator": "==",
-							"value": "overworld"
-						},
-						{
-							"test": "has_biome_tag",
-							"operator": "==",
-							"value": "overworld_generation"
-						}
-					]
+					"test": "has_biome_tag",
+					"operator": "==",
+					"value": "deep_dark"
 				}
 			]
 		},
@@ -32,7 +23,7 @@
 			},
 			"y": {
 				"distribution": "uniform",
-				"extent": [-64, 256]
+				"extent": [-63, 256]
 			},
 			"z": {
 				"distribution": "uniform",

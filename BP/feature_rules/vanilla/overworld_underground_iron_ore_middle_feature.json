@@ -2,11 +2,11 @@
 	"format_version": "1.13.0",
 	"minecraft:feature_rules": {
 		"description": {
-			"identifier": "minecraft:overworld_amethyst_geode_feature",
+			"identifier": "minecraft:overworld_underground_iron_ore_middle_feature",
 			"places_feature": "kado:overworld_block_filter"
 		},
 		"conditions": {
-			"placement_pass": "after_surface_pass",
+			"placement_pass": "underground_pass",
 			"minecraft:biome_filter": [
 				{
 					"any_of": [
@@ -26,16 +26,19 @@
 		},
 		"distribution": {
 			"iterations": 1,
-			"scatter_chance": {
-				"numerator": 1,
-				"denominator": 24
-			},
-			"x": 0,
-			"y": {
+			"coordinate_eval_order": "zyx",
+			"x": {
 				"distribution": "uniform",
-				"extent": [-58, 30]
+				"extent": [0, 16]
 			},
-			"z": 0
+			"y": {
+				"distribution": "triangle",
+				"extent": [-24, 56]
+			},
+			"z": {
+				"distribution": "uniform",
+				"extent": [0, 16]
+			}
 		}
 	}
 }

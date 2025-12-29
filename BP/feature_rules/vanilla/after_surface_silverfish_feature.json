@@ -2,7 +2,7 @@
 	"format_version": "1.13.0",
 	"minecraft:feature_rules": {
 		"description": {
-			"identifier": "minecraft:overworld_amethyst_geode_feature",
+			"identifier": "minecraft:after_surface_silverfish_feature",
 			"places_feature": "kado:overworld_block_filter"
 		},
 		"conditions": {
@@ -13,12 +13,12 @@
 						{
 							"test": "has_biome_tag",
 							"operator": "==",
-							"value": "overworld"
+							"value": "extreme_hills"
 						},
 						{
 							"test": "has_biome_tag",
 							"operator": "==",
-							"value": "overworld_generation"
+							"value": "mountains"
 						}
 					]
 				}
@@ -26,16 +26,19 @@
 		},
 		"distribution": {
 			"iterations": 1,
-			"scatter_chance": {
-				"numerator": 1,
-				"denominator": 24
+			"coordinate_eval_order": "xyz",
+			"x": {
+				"distribution": "uniform",
+				"extent": [0, 16]
 			},
-			"x": 0,
 			"y": {
 				"distribution": "uniform",
-				"extent": [-58, 30]
+				"extent": [0, 64]
 			},
-			"z": 0
+			"z": {
+				"distribution": "uniform",
+				"extent": [0, 16]
+			}
 		}
 	}
 }

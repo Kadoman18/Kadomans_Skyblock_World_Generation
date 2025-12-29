@@ -2,7 +2,7 @@
 	"format_version": "1.13.0",
 	"minecraft:feature_rules": {
 		"description": {
-			"identifier": "minecraft:overworld_amethyst_geode_feature",
+			"identifier": "minecraft:desert_or_swamp_after_surface_fossil_deepslate_feature",
 			"places_feature": "kado:overworld_block_filter"
 		},
 		"conditions": {
@@ -13,12 +13,12 @@
 						{
 							"test": "has_biome_tag",
 							"operator": "==",
-							"value": "overworld"
+							"value": "desert"
 						},
 						{
 							"test": "has_biome_tag",
 							"operator": "==",
-							"value": "overworld_generation"
+							"value": "swamp"
 						}
 					]
 				}
@@ -28,12 +28,12 @@
 			"iterations": 1,
 			"scatter_chance": {
 				"numerator": 1,
-				"denominator": 24
+				"denominator": 64
 			},
 			"x": 0,
 			"y": {
 				"distribution": "uniform",
-				"extent": [-58, 30]
+				"extent": [-64, -8]
 			},
 			"z": 0
 		}

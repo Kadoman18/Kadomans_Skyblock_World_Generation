@@ -6,7 +6,7 @@
 		},
 		"places_feature": "kado:overworld_block_filter",
 		"distribution": {
-			"iterations": 99000,
+			"iterations": 100000,
 			"scatter_chance": 100,
 			"x": {
 				"distribution": "fixed_grid",

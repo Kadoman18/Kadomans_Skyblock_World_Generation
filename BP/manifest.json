@@ -5,23 +5,23 @@
 		"name": "Skyblock Generation (BP)",
 		"description": "Enables void world generation while keeping biome mapping",
 		"uuid": "cd3dbc3f-4905-4e5c-aaf5-c0e8b70b7d21",
-		"version": [1, 0, 34]
+		"version": [1, 0, 36]
 	},
 	"modules": [
 		{
 			"type": "data",
 			"description": "Fixed overworld block filter to delete trial chambers.",
 			"uuid": "0d5b64bb-ab30-4a03-a5d5-aec96bb7ad6f",
-			"version": [1, 0, 34]
+			"version": [1, 0, 36]
 		},
 		{
 			"type": "script",
 			"language": "javascript",
 			"entry": "main.js",
 			"uuid": "cbe2d71d-8be0-48d9-a27f-d667f5993477",
-			"version": [1, 0, 0]
+			"version": [1, 0, 3]
 		}
 	],
-	"dependencies": [{ "module_name": "@minecraft/server", "version": "2.2.0" }],
+	"dependencies": [{ "module_name": "@minecraft/server", "version": "2.4.0" }],
 	"metadata": { "authors": ["Kadoman18"] }
 }

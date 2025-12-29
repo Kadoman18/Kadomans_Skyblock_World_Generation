@@ -2,23 +2,18 @@
 	"format_version": "1.13.0",
 	"minecraft:feature_rules": {
 		"description": {
-			"identifier": "minecraft:overworld_amethyst_geode_feature",
+			"identifier": "minecraft:mangrove_swamp_surface_dead_bush_feature",
 			"places_feature": "kado:overworld_block_filter"
 		},
 		"conditions": {
-			"placement_pass": "after_surface_pass",
+			"placement_pass": "surface_pass",
 			"minecraft:biome_filter": [
 				{
 					"any_of": [
 						{
 							"test": "has_biome_tag",
 							"operator": "==",
-							"value": "overworld"
-						},
-						{
-							"test": "has_biome_tag",
-							"operator": "==",
-							"value": "overworld_generation"
+							"value": "mangrove_swamp"
 						}
 					]
 				}
@@ -26,16 +21,21 @@
 		},
 		"distribution": {
 			"iterations": 1,
-			"scatter_chance": {
-				"numerator": 1,
-				"denominator": 24
+			"x": {
+				"distribution": "uniform",
+				"extent": [0, 16]
 			},
-			"x": 0,
 			"y": {
 				"distribution": "uniform",
-				"extent": [-58, 30]
+				"extent": [
+					0,
+					"query.heightmap(variable.worldx, variable.worldz) * 2"
+				]
 			},
-			"z": 0
+			"z": {
+				"distribution": "uniform",
+				"extent": [0, 16]
+			}
 		}
 	}
 }
