@@ -284,7 +284,7 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 	function buildIsland(island, afterTicks) {
 		system.runTimeout(() => {
 			const origin = calculateOffsets(spawn, island.origin_offset);
-			const dimension = island.dimension
+			const dimension = island.dimension;
 
 			debugMsg(
 				`${island.name} origin located at ${coordsString(origin, true)}`
@@ -374,16 +374,16 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 			});
 			debugMsg(
 				`Chest found and filled at location: ${calculateOffsets(
-				calculateOffsets(spawn, island.origin_offset),
-				island.loot.chestLoc
-			)}`
+					calculateOffsets(spawn, island.origin_offset),
+					island.loot.chestLoc
+				)}`
 			);
 		} else {
 			debugMsg(
 				`Chest not found at location: ${calculateOffsets(
-				calculateOffsets(spawn, island.origin_offset),
-				island.loot.chestLoc
-			)}`
+					calculateOffsets(spawn, island.origin_offset),
+					island.loot.chestLoc
+				)}`
 			);
 		}
 	}
@@ -393,7 +393,7 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 	debugMsg(`${player.name} awaiting island generation.`);
 	suspendPlayer(
 		{ x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 },
-		30 * islands.length
+		60 * islands.length
 	);
 
 	for (const island of islands) {
