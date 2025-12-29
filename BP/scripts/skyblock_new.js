@@ -18,6 +18,7 @@ const debugging = true;
 //
 // {
 //     name: string,
+//     dimension?: Dimension,           // Assigned at runtime
 //     origin_offset: Vector3,          // Offset from world spawn
 //     loot?: {
 //         chestLoc: Vector3,            // Offset from island origin
@@ -54,6 +55,7 @@ const debugging = true;
 // --------------------------------------------------
 const starterIsland = {
 	name: "Starter Island",
+	targetDimension: "overworld",
 	origin_offset: { x: 0, y: 0, z: 0 },
 
 	loot: {
@@ -193,6 +195,7 @@ const starterIsland = {
 // --------------------------------------------------
 const sandIsland = {
 	name: "Sand Island",
+	targetDimension: "overworld",
 	origin_offset: { x: 0, y: 0, z: -67 },
 
 	loot: {
@@ -267,8 +270,6 @@ const overworldIslands = [starterIsland, sandIsland];
  *
  * @param {string} message
  *        The message to log to the console.
- *
- * @returns {void}
  */
 function debugMsg(message) {
 	if (!debugging) return;
@@ -325,12 +326,11 @@ function calculateOffsets(origin, offsets) {
  *
  * @param {number} ticks
  *        Duration in ticks.
- *
- * @returns {void}
  */
 function suspendPlayer(location, ticks) {
 	const suspend = system.runInterval(() => {
 		player.tryTeleport(location);
+		debugMsg(`${player.name} Suspended.`);
 	}, 5);
 
 	system.runTimeout(() => {
@@ -342,17 +342,18 @@ function suspendPlayer(location, ticks) {
 /**
  * Creates a temporary ticking area around an island.
  *
+ * @param {{ x: number, y: number, z: number }} originPoint
+ *        World reference point.
+ *
  * @param {object} island
  *        Island definition with origin_offset and dimension.
  *
  * @param {number} duration
  *        Duration in ticks for the ticking area.
- *
- * @returns {void}
  */
-function tick(island, duration) {
+function tick(originPoint, island, duration) {
 	const dimension = island.dimension;
-	const location = calculateOffsets(spawn, island.origin_offset);
+	const location = calculateOffsets(originPoint, island.origin_offset);
 
 	dimension.runCommand(
 		`tickingarea add circle ${coordsString(location, false)} 2`
@@ -370,9 +371,6 @@ function tick(island, duration) {
 /**
  * Builds an island from its block definitions.
  *
- * @param {import("@minecraft/server").Dimension} dimension
- *        Target dimension.
- *
  * @param {{ x: number, y: number, z: number }} originPoint
  *        World reference point.
  *
@@ -381,13 +379,11 @@ function tick(island, duration) {
  *
  * @param {number} afterTicks
  *        Delay before execution.
- *
- * @returns {void}
  */
-function buildIsland(dimension, originPoint, island, afterTicks) {
+function buildIsland(originPoint, island, afterTicks) {
 	system.runTimeout(() => {
+		const dimension = island.dimension;
 		const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
-
 		debugMsg(
 			`${island.name} origin located at ${coordsString(islandOrigin, true)}`
 		);
@@ -422,7 +418,7 @@ function buildIsland(dimension, originPoint, island, afterTicks) {
 		}
 
 		if (island.loot) {
-			fillChest(dimension, island, originPoint);
+			fillChest(island, originPoint);
 		}
 	}, afterTicks);
 }
@@ -441,8 +437,6 @@ function buildIsland(dimension, originPoint, island, afterTicks) {
  *
  * @param {import("@minecraft/server").Dimension} dimension
  *        Target dimension.
- *
- * @returns {void}
  */
 function setBlockPerms(iteration, from, to, dimension) {
 	const permId = iteration.perms.perm;
@@ -471,18 +465,14 @@ function setBlockPerms(iteration, from, to, dimension) {
 /**
  * Locates and fills an island chest with loot.
  *
- * @param {import("@minecraft/server").Dimension} dimension
- *        Dimension containing the chest.
- *
  * @param {object} island
  *        Island definition containing loot.
  *
  * @param {{ x: number, y: number, z: number }} originPoint
  *        World reference position.
- *
- * @returns {void}
  */
-function fillChest(dimension, island, originPoint) {
+function fillChest(island, originPoint) {
+	const dimension = island.dimension;
 	const chestBlock = dimension.getBlock(
 		calculateOffsets(
 			calculateOffsets(originPoint, island.origin_offset),
@@ -539,8 +529,6 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 		return;
 	}
 
-	const overworld = world.getDimension("overworld");
-
 	const spawn = {
 		x: world.getDefaultSpawnLocation().x,
 		y: 65,
@@ -558,9 +546,9 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 	);
 
 	for (const island of overworldIslands) {
-		island.dimension = overworld;
-		tick(island, 120);
-		buildIsland(overworld, spawn, island, 100);
+		island.dimension = world.getDimension(island.targetDimension);
+		tick(spawn, island, 120);
+		buildIsland(spawn, island, 100);
 	}
 
 	world.setDynamicProperty("kado:overworld_unlocked", true);
@@ -568,6 +556,59 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 	debugMsg(
 		`Dynamic Property: "kado:overworld_unlocked" - ${world.getDynamicProperty(
 			"kado:overworld_unlocked"
+		)}`
+	);
+});
+
+// --------------------------------------------------
+// Nether Initialization Hook
+// --------------------------------------------------
+world.afterEvents.playerDimensionChange.subscribe((eventData) => {
+	const { player, toDimension, toLocation } = eventData;
+
+	if (
+		toDimension === nether &&
+		world.getDynamicProperty("kado:nether_unlocked")
+	) {
+		debugMsg(`This worlds nether has already been initialized`);
+		return;
+	} else if (toDimension === the_end) {
+		return;
+	}
+
+	const direction = player.getViewDirection();
+
+	debugMsg(
+		`${player.name} has a view direction of ${coordsString(direction, true)}`
+	);
+
+	const origin = {
+		x: toLocation.x,
+		y: toLocation.y,
+		z: toLocation.z,
+	};
+
+	debugMsg(
+		`Origin Found: ${coordsString(origin, true)}\n
+		${player.name} awaiting island generation.`
+	);
+
+	suspendPlayer(
+		{ x: origin.x + 0.5, y: origin.y, z: origin.z + 0.5 },
+		60 * netherIslands.length
+	);
+
+	for (const island of netherIslands) {
+		island.dimension = world.getDimension(island.targetDimension);
+		tick(origin, island, 120);
+		buildIsland(origin, island, 100);
+	}
+
+	world.setDynamicProperty("kado:nether_unlocked", true);
+
+	debugMsg(
+		`Dynamic Property: "kado:nether_unlocked" - ${world.getDynamicProperty(
+			"kado:nether_unlocked"
 		)}`
 	);
 });
