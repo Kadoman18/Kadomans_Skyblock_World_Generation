@@ -18,6 +18,7 @@
 					"operator": "==",
 					"value": "ocean"
 				},
+				// Needed to distinguish between frozen_ocean and legacy_frozen_ocean
 				{
 					"test": "has_biome_tag",
 					"operator": "==",

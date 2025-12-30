@@ -1,4 +1,5 @@
 {
+	// No-op, this is just to override & remove the original config
 	"format_version": "1.13.0",
 	"minecraft:feature_rules": {
 		"description": {
