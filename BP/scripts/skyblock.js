@@ -12,7 +12,7 @@ import { BlockVolume, ItemStack, system, world } from "@minecraft/server";
 // Global Debug Toggle
 // --------------------------------------------------
 // Enables verbose console output through debugMsg()
-const debugging = 0;
+const debugLevel = 0;
 
 // Island schema overview:
 //
@@ -50,7 +50,7 @@ const debugging = 0;
 // - from/to order does not matter; BlockVolume normalizes bounds
 //
 //
-
+//
 // --------------------------------------------------
 // Starter Island Definition
 // --------------------------------------------------
@@ -166,7 +166,7 @@ const sandIsland = {
 			block: "minecraft:cactus_flower",
 			offset: { from: { x: -1, y: 1, z: -1 }, to: { x: -1, y: 1, z: -1 } },
 		},
-		// Updates the sculk to all be the correct permutation (sometimes its bugged so this is a backup)
+		// Updates all sculk to be the correct permutation (sometimes its bugged so this is a backup)
 		update1: {
 			block: "minecraft:sculk_vein",
 			perms: { perm: "multi_face_direction_bits", value: 2 },
@@ -230,37 +230,43 @@ const netherIslands = [netherIsland];
 // --------------------------------------------------
 
 /**
- * Logs a debug message if debugging is enabled.
+ * Logs a debug message if the messages value is less than or equal to the debugLevel global value.
  *
  * @param {string} message - Message to log.
- * @param {number} level - Severity of message, 3 for deep debugging, 2 for light, 1 for regular use, 0 for warnings only.
+ * @param {number} level - Severity of message.
+ *
+ * Note:
+ * Level 3 - least important,
+ * Level 2 - slightly relevant,
+ * Level 1 - good to know,
+ * Level 0 - warnings only
  */
 function debugMsg(message, level) {
 	if (level === 0) {
 		console.warn(message);
 		return;
 	}
-	if (debugging >= level) console.log(message);
+	if (debugLevel >= level) console.log(message);
 }
 
 /**
  * Converts a Vector3 into a readable string.
  *
- * @param {{x:number, y:number, z:number}} coords - Coordinates to stringify.
- * @param {boolean} debug - True for labeled output, false for command-friendly output.
+ * @param {Vector3} coords - Coordinates to stringify.
+ * @param {boolean} forDebug - True for labeled output, false for command-friendly output.
  * @returns {string} Formatted string.
  */
-function coordsString(coords, debug) {
-	if (debug) return `X: ${coords.x}, Y: ${coords.y}, Z: ${coords.z}`;
+function coordsString(coords, forDebug) {
+	if (forDebug) return `X: ${coords.x}, Y: ${coords.y}, Z: ${coords.z}`;
 	return `${coords.x} ${coords.y} ${coords.z}`;
 }
 
 /**
  * Applies an offset vector to an origin vector.
  *
- * @param {{x:number, y:number, z:number}} origin - Base coordinates.
- * @param {{x:number, y:number, z:number}} offsets - Offset to apply.
- * @returns {{x:number, y:number, z:number}} New coordinates.
+ * @param {Vector3} origin - Base coordinates.
+ * @param {Vector3} offsets - Offset to apply.
+ * @returns {Vector3} New coordinates.
  */
 function calculateOffsets(origin, offsets) {
 	return {
@@ -463,7 +469,7 @@ function buildIslandBlocks(island, originPoint) {
 /**
  * Locates a chest on an island and fills it with loot.
  *
- * @param {object} island - Island with loot.
+ * @param {object} island - Island object with loot.
  * @param {Vector3} originPoint - World origin reference.
  */
 function fillChest(island, originPoint) {
@@ -530,8 +536,8 @@ function finalizeIslandLoot(island, originPoint) {
 /**
  * Generates an island including ticking area, blocks, and loot.
  *
- * @param {object} island - Island definition.
- * @param {Vector3} originPoint - World reference.
+ * @param {object} island - Island object.
+ * @param {Vector3} originPoint - World origin reference.
  */
 function generateIsland(island, originPoint) {
 	if (!prepareIsland(island)) return;
@@ -594,6 +600,7 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 	);
 	suspendPlayer(player, { x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 });
 
+	// Thanks Lyvvy <3
 	for (const island of overworldIslands) generateIsland(island, spawn);
 
 	world.setDynamicProperty("kado:overworld_unlocked", true);

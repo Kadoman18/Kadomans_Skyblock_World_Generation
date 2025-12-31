@@ -18,7 +18,7 @@
 				"denominator": 4
 			},
 			"x": 0,
-			"y": "query.heightmap(variable.worldx, variable.worldz)",
+			"y": "q.heightmap(v.worldx, v.worldz)",
 			"z": 0
 		}
 	}
