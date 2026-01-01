@@ -2,8 +2,8 @@
 	"format_version": "1.18.0",
 	"minecraft:feature_rules": {
 		"description": {
-			"identifier": "kado:nether_replace_feature_rule",
-			"places_feature": "kado:nether_replace_feature"
+			"identifier": "kado:overworld_replace_feature_rule_1",
+			"places_feature": "kado:overworld_replace_feature"
 		},
 		"conditions": {
 			"placement_pass": "final_pass",
@@ -13,7 +13,12 @@
 						{
 							"test": "has_biome_tag",
 							"operator": "==",
-							"value": "nether"
+							"value": "overworld"
+						},
+						{
+							"test": "has_biome_tag",
+							"operator": "==",
+							"value": "overworld_generation"
 						}
 					]
 				}
@@ -23,7 +28,7 @@
 			"iterations": 1,
 			"x": 0,
 			"z": 0,
-			"y": 0
+			"y": -64
 		}
 	}
 }

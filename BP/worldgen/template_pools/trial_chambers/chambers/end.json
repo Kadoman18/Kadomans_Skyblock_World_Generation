@@ -1,0 +1,20 @@
+{
+	"format_version": "1.21.100",
+	"minecraft:template_pool": {
+		"description": {
+			"identifier": "minecraft:trial_chambers/chamber/end"
+		},
+		"elements": [
+			{
+				"element": {
+					"element_type": "minecraft:single_pool_element",
+					"location": "minecraft:trial_chambers/corridor/end_1",
+					"processors": "minecraft:trial_chambers_copper_bulb_degradation",
+					"projection": "rigid"
+				},
+				"weight": 1
+			}
+		],
+		"fallback": "minecraft:empty"
+	}
+}

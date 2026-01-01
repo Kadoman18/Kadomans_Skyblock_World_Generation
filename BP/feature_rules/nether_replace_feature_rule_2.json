@@ -1,0 +1,29 @@
+{
+	"format_version": "1.18.0",
+	"minecraft:feature_rules": {
+		"description": {
+			"identifier": "kado:nether_replace_feature_rule_2",
+			"places_feature": "kado:nether_replace_feature"
+		},
+		"conditions": {
+			"placement_pass": "final_pass",
+			"minecraft:biome_filter": [
+				{
+					"any_of": [
+						{
+							"test": "has_biome_tag",
+							"operator": "==",
+							"value": "nether"
+						}
+					]
+				}
+			]
+		},
+		"distribution": {
+			"iterations": 1,
+			"x": 0,
+			"z": 0,
+			"y": 0
+		}
+	}
+}

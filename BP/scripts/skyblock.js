@@ -293,7 +293,7 @@ function waitForChunkLoaded(
 	dimension,
 	location,
 	onReady,
-	retries = 15,
+	retries = 50,
 	interval = 20
 ) {
 	let attempts = 0;
