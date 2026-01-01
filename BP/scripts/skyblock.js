@@ -629,7 +629,25 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 		return;
 	} else if (toDimension.id === "minecraft:the_end") return;
 
-	const origin = { x: toLocation.x, y: toLocation.y + 5, z: toLocation.z };
+	debugMsg(`toLocation: ${coordsString(toLocation, true)}`, 3);
+	debugMsg(`player.location: ${coordsString(player.location, true)}`, 3);
+
+	const origin = {
+		x: toLocation.x,
+		y: toLocation.y + 5,
+		z: toLocation.z,
+	};
+
+	suspendPlayer(
+		player,
+		{
+			x: origin.x + 0.5,
+			y: origin.y,
+			z: origin.z + 0.99,
+		},
+		10
+	);
+
 	debugMsg(
 		`Origin Found: ${coordsString(origin, true)}\n${
 			player.name
