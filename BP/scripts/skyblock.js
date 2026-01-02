@@ -12,7 +12,7 @@ import { BlockVolume, ItemStack, system, world } from "@minecraft/server";
 // Global Debug Toggle
 // --------------------------------------------------
 // Enables verbose console output through debugMsg()
-const debugLevel = 0;
+const debugLevel = 2;
 
 // Island schema overview:
 //
@@ -583,7 +583,7 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 	const { player } = eventData;
 
 	if (world.getDynamicProperty("kado:overworld_unlocked")) {
-		debugMsg(`This world has already been initialized`, 3);
+		debugMsg(`This world's overworld has already been initialized`, 3);
 		return;
 	}
 
@@ -665,3 +665,33 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 		3
 	);
 });
+
+// Scrapped: Vault loot is location based, even if reusable, gives the same loot every time..
+/*
+world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
+	const { player, block, itemStack } = eventData;
+	const acceptedItems = ["minecraft:trial_key", "minecraft:ominous_trial_key"];
+	if (block.typeId !== "minecraft:vault" || !itemStack.typeId in acceptedItems)
+		return;
+	const ominous = block.permutation.getState("ominous");
+	if (ominous && itemStack.typeId === "minecraft:ominous_trial_key") {
+		system.runTimeout(() => {
+			player.runCommand(
+				`structure load ominousVault ${coordsString(block.location, false)}`
+			);
+		}, 130);
+	} else if (!ominous && itemStack.typeId === "minecraft:trial_key") {
+		system.runTimeout(() => {
+			player.runCommand(
+				`structure load vault ${coordsString(block.location, false)}`
+			);
+		}, 130);
+	} else {
+		return;
+	}
+	debugMsg(
+		`${player.name} interacted with a ${block.typeId} while holding ${itemStack.amount} ${itemStack.typeId}s`,
+		2
+	);
+});
+*/

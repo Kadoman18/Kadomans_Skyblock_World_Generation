@@ -1,5 +1,5 @@
 {
-	"format_version": "1.18.0",
+	"format_version": "1.21.60",
 	"minecraft:feature_rules": {
 		"description": {
 			"identifier": "kado:end_replace_feature_rule",
