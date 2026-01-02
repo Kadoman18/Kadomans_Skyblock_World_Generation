@@ -666,7 +666,39 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 	);
 });
 
-// Scrapped: Vault loot is location based, even if reusable, gives the same loot every time..
+// --------------------------------------------------
+// Silk Touch Budding Amethyst
+// --------------------------------------------------
+world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
+	const { player, block, itemStack } = eventData;
+	const dropBud =
+		(itemStack.typeId === "minecraft:copper_pickaxe" ||
+			itemStack.typeId === "minecraft:iron_pickaxe" ||
+			itemStack.typeId === "minecraft:diamond_pickaxe" ||
+			itemStack.typeId === "minecraft:netherite_pickaxe") &&
+		itemStack
+			.getComponent("minecraft:enchantable")
+			.hasEnchantment("minecraft:silk_touch") &&
+		block.typeId === "minecraft:budding_amethyst" &&
+		player.getGameMode() === "Survival"
+			? true
+			: false;
+
+	if (!dropBud) return;
+	const buddingAmethyst = new ItemStack("minecraft:budding_amethyst", 1);
+	system.run(() => {
+		player.dimension.spawnItem(buddingAmethyst, {
+			x: block.location.x + 0.5,
+			y: block.location.y + 0.5,
+			z: block.location.z + 0.5,
+		});
+	});
+});
+
+// --------------------------------------------------
+// Scrapped: Vault loot is location based.
+// Even if reusable, gives the same loot every time..
+// --------------------------------------------------
 /*
 world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
 	const { player, block, itemStack } = eventData;
