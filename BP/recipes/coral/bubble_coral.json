@@ -1,0 +1,23 @@
+{
+	"format_version": "1.21.50",
+	"minecraft:recipe_shaped": {
+		"description": {
+			"identifier": "kado:bubble_coral_block"
+		},
+		"unlock": [
+			{
+				"item": "minecraft:bubble_coral"
+			}
+		],
+		"tags": ["crafting_table"],
+		"pattern": ["###", "###", "###"],
+		"key": {
+			"#": {
+				"item": "minecraft:bubble_coral"
+			}
+		},
+		"result": {
+			"item": "minecraft:bubble_coral_block"
+		}
+	}
+}

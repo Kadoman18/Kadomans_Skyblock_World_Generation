@@ -1,0 +1,23 @@
+{
+	"format_version": "1.21.50",
+	"minecraft:recipe_shaped": {
+		"description": {
+			"identifier": "kado:brain_coral_block"
+		},
+		"unlock": [
+			{
+				"item": "minecraft:brain_coral"
+			}
+		],
+		"tags": ["crafting_table"],
+		"pattern": ["###", "###", "###"],
+		"key": {
+			"#": {
+				"item": "minecraft:brain_coral"
+			}
+		},
+		"result": {
+			"item": "minecraft:brain_coral_block"
+		}
+	}
+}

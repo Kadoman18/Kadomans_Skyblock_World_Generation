@@ -1,0 +1,23 @@
+{
+	"format_version": "1.21.50",
+	"minecraft:recipe_shaped": {
+		"description": {
+			"identifier": "kado:horn_coral_block"
+		},
+		"unlock": [
+			{
+				"item": "minecraft:horn_coral"
+			}
+		],
+		"tags": ["crafting_table"],
+		"pattern": ["###", "###", "###"],
+		"key": {
+			"#": {
+				"item": "minecraft:horn_coral"
+			}
+		},
+		"result": {
+			"item": "minecraft:horn_coral_block"
+		}
+	}
+}

@@ -1,0 +1,23 @@
+{
+	"format_version": "1.21.50",
+	"minecraft:recipe_shaped": {
+		"description": {
+			"identifier": "kado:fire_coral_block"
+		},
+		"unlock": [
+			{
+				"item": "minecraft:fire_coral"
+			}
+		],
+		"tags": ["crafting_table"],
+		"pattern": ["###", "###", "###"],
+		"key": {
+			"#": {
+				"item": "minecraft:fire_coral"
+			}
+		},
+		"result": {
+			"item": "minecraft:fire_coral_block"
+		}
+	}
+}

@@ -136,7 +136,7 @@
 			},
 			"minecraft:zombie_husk_baby": {
 				"minecraft:experience_reward": {
-					"on_death": "query.last_hit_by_player ? 12 + (query.equipment_count * Math.Random(1,3)) : 0"
+					"on_death": "q.last_hit_by_player ? 12 + (q.equipment_count * Math.Random(1,3)) : 0"
 				},
 				"minecraft:is_baby": {},
 				"minecraft:scale": {
@@ -158,7 +158,7 @@
 			},
 			"minecraft:zombie_husk_adult": {
 				"minecraft:experience_reward": {
-					"on_death": "query.last_hit_by_player ? 5 + (query.equipment_count * Math.Random(1,3)) : 0"
+					"on_death": "q.last_hit_by_player ? 5 + (q.equipment_count * Math.Random(1,3)) : 0"
 				},
 				"minecraft:movement": {
 					"value": 0.23
