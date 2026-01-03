@@ -754,7 +754,7 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 world.afterEvents.itemStopUseOn.subscribe((eventData) => {
 	const reBudAmDebug = 1;
 	const { source: player, itemStack } = eventData;
-	if (itemStack.typeId !== "minecraft:water_bucket") return;
+	if (itemStack?.typeId !== "minecraft:water_bucket") return;
 	const rayBlock = player.getBlockFromViewDirection({
 		includeLiquidBlocks: true,
 		maxDistance: 8,
@@ -825,33 +825,82 @@ world.afterEvents.itemStopUseOn.subscribe((eventData) => {
 });
 
 // --------------------------------------------------
-// Silk Touch Budding Amethyst
+// Silk Touch Budding Amethyst / Renewable Spore Blossoms
 // --------------------------------------------------
 world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
+	const breakBlockDebug = 1;
 	const { player, block, itemStack } = eventData;
-	const dropBud =
-		(itemStack.typeId === "minecraft:copper_pickaxe" ||
+	if (
+		player.getGameMode() !== "Survival" ||
+		itemStack?.typeId === "minecraft:shears"
+	)
+		return;
+
+	let doSpawn = null;
+
+	const enchantable = itemStack?.getComponent("minecraft:enchantable");
+
+	const hasSilkTouch = enchantable?.hasEnchantment("minecraft:silk_touch");
+	const hasFortune = enchantable?.hasEnchantment("minecraft:fortune");
+
+	// ------------------------------------------
+	// Fortune level (0–3)
+	// ------------------------------------------
+	let fortuneLevel = 0;
+
+	if (hasFortune) {
+		const fortune = enchantable.getEnchantment("minecraft:fortune");
+		fortuneLevel = Math.min(fortune?.level ?? 0, 3);
+	}
+
+	// ------------------------------------------
+	// Flowering azalea (fortune-scaled)
+	// ------------------------------------------
+	if (block.typeId === "minecraft:azalea_leaves_flowered" && !hasSilkTouch) {
+		const dropChance = 0.01 * (1 + fortuneLevel);
+		const dropRoll = Math.random();
+		debugMsg(`Chance: ${dropChance}\nRoll: ${dropRoll}`, breakBlockDebug);
+
+		if (dropRoll < dropChance) {
+			doSpawn = "minecraft:spore_blossom";
+			debugMsg(`Spore Blossom Dropped`, breakBlockDebug);
+		}
+	}
+
+	// ------------------------------------------
+	// Budding amethyst (silk touch only)
+	// ------------------------------------------
+	if (
+		!doSpawn &&
+		block.typeId === "minecraft:budding_amethyst" &&
+		itemStack &&
+		hasSilkTouch
+	) {
+		const isValidPickaxe =
+			itemStack.typeId === "minecraft:copper_pickaxe" ||
 			itemStack.typeId === "minecraft:iron_pickaxe" ||
 			itemStack.typeId === "minecraft:diamond_pickaxe" ||
-			itemStack.typeId === "minecraft:netherite_pickaxe") &&
-		itemStack
-			.getComponent("minecraft:enchantable")
-			.hasEnchantment("minecraft:silk_touch") &&
-		block.typeId === "minecraft:budding_amethyst" &&
-		player.getGameMode() === "Survival"
-			? true
-			: false;
+			itemStack.typeId === "minecraft:netherite_pickaxe";
 
-	if (!dropBud) return;
-	const buddingAmethyst = new ItemStack("minecraft:budding_amethyst", 1);
+		if (isValidPickaxe) {
+			doSpawn = "minecraft:budding_amethyst";
+			debugMsg(`Budding Amethyst Dropped`, breakBlockDebug);
+		}
+	}
+
+	if (!doSpawn) return;
+
+	const dropBlock = new ItemStack(doSpawn, 1);
+
 	system.run(() => {
-		player.dimension.spawnItem(buddingAmethyst, {
+		player.dimension.spawnItem(dropBlock, {
 			x: block.location.x + 0.5,
 			y: block.location.y + 0.5,
 			z: block.location.z + 0.5,
 		});
 	});
 });
+
 // --------------------------------------------------
 // Scrapped: Vault loot is location based.
 // Even if reusable, gives the same loot every time..
