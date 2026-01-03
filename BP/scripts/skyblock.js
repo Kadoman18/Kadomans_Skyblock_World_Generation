@@ -1,18 +1,28 @@
-import { BlockVolume, ItemStack, system, world } from "@minecraft/server";
+import {
+	BlockComponentRandomTickEvent,
+	BlockVolume,
+	ItemStack,
+	system,
+	world,
+} from "@minecraft/server";
 
 // --------------------------------------------------
 // Coordinate System Reference (Bedrock)
 // --------------------------------------------------
-// East:  +x (Left)
-// West:  -x (Right)
-// North: -z (Backwards)
-// South: +z (Forwards)
+// North: >>>>>>>>> (-z) - (Backwards)
+// Northeast: > (+x, -z) - (Back-Left)
+// East: >>>>>>>>>> (+x) - (Left)
+// Southeast >> (+x, +z) - (Front-Left)
+// South: >>>>>>>>> (+z) - (Forwards)
+// Southwest: > (-x, +z) - (Front-Right)
+// West: >>>>>>>>>> (-x) - (Right)
+// Northwest: > (-x, -z) - (Back-Right)
 
 // --------------------------------------------------
 // Global Debug Toggle
 // --------------------------------------------------
 // Enables verbose console output through debugMsg()
-const debugLevel = 2;
+const debugLevel = 3;
 
 // Island schema overview:
 //
@@ -276,6 +286,39 @@ function calculateOffsets(origin, offsets) {
 	};
 }
 
+/**
+ * Converts Minecraft ticks to real-world hours, minutes, and seconds.
+ *
+ * @param {number} ticks - Number of game ticks.
+ * @returns {object} {hours, minutes, seconds}
+ */
+function ticksToTime(ticks) {
+	const totalSeconds = Math.floor(ticks / 20);
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+	return { hours, minutes, seconds };
+}
+
+/**
+ * Checks if a block is fully surrounded by a specific type.
+ *
+ * @param {Dimension} dimension - The dimension of the block.
+ * @param {Block} block - Block to check.
+ * @param {string} typeId - Type ID to compare.
+ * @returns {boolean} True if surrounded on all sides.
+ */
+function isSurrounded(dimension, block, typeId) {
+	return (
+		dimension.getBlock(block.location).above().typeId === typeId &&
+		dimension.getBlock(block.location).north().typeId === typeId &&
+		dimension.getBlock(block.location).east().typeId === typeId &&
+		dimension.getBlock(block.location).south().typeId === typeId &&
+		dimension.getBlock(block.location).west().typeId === typeId &&
+		dimension.getBlock(block.location).below().typeId === typeId
+	);
+}
+
 // --------------------------------------------------
 // Wait for Chunk Loaded
 // --------------------------------------------------
@@ -298,10 +341,14 @@ function waitForChunkLoaded(
 ) {
 	let attempts = 0;
 
+	const waitForChunksDebug = 0;
 	const handle = system.runInterval(() => {
 		if (dimension.isChunkLoaded(location)) {
 			system.clearRun(handle);
-			debugMsg(`Chunk loaded at ${coordsString(location, true)}`, 1);
+			debugMsg(
+				`Chunk loaded at ${coordsString(location, true)}`,
+				waitForChunksDebug
+			);
 			onReady();
 			return;
 		}
@@ -312,7 +359,7 @@ function waitForChunkLoaded(
 				location,
 				true
 			)}`,
-			2
+			waitForChunksDebug
 		);
 
 		if (attempts >= retries) {
@@ -322,7 +369,7 @@ function waitForChunkLoaded(
 					location,
 					true
 				)} Failed after ${retries} attempts.`,
-				0
+				waitForChunksDebug
 			);
 		}
 	}, interval);
@@ -385,6 +432,7 @@ function removeTickingArea(dimension, name) {
  * @param {Dimension} dimension - Target dimension.
  */
 function applyBlockPermutations(iteration, from, to, dimension) {
+	const applyPermsDebug = 0;
 	const permId = iteration.perms.perm;
 	const permValue = iteration.perms.value;
 
@@ -401,7 +449,7 @@ function applyBlockPermutations(iteration, from, to, dimension) {
 				from,
 				true
 			)}`,
-			3
+			applyPermsDebug
 		);
 		return;
 	}
@@ -422,7 +470,7 @@ function applyBlockPermutations(iteration, from, to, dimension) {
 			from,
 			true
 		)} -> ${coordsString(to, true)}`,
-		3
+		applyPermsDebug
 	);
 }
 
@@ -433,6 +481,7 @@ function applyBlockPermutations(iteration, from, to, dimension) {
  * @param {Vector3} originPoint - World origin reference.
  */
 function buildIslandBlocks(island, originPoint) {
+	const buildIslandDebug = 0;
 	const dimension = island.dimension;
 	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
 
@@ -441,7 +490,7 @@ function buildIslandBlocks(island, originPoint) {
 			islandOrigin,
 			true
 		)}\nBuilding Island Now...`,
-		1
+		buildIslandDebug
 	);
 
 	for (const key in island.blocks) {
@@ -455,7 +504,7 @@ function buildIslandBlocks(island, originPoint) {
 				to,
 				true
 			)}`,
-			3
+			buildIslandDebug
 		);
 
 		const volume = new BlockVolume(from, to);
@@ -473,6 +522,7 @@ function buildIslandBlocks(island, originPoint) {
  * @param {Vector3} originPoint - World origin reference.
  */
 function fillChest(island, originPoint) {
+	const fillChestDebug = 0;
 	const dimension = island.dimension;
 	const chestBlock = dimension.getBlock(
 		calculateOffsets(
@@ -506,7 +556,7 @@ function fillChest(island, originPoint) {
 				),
 				true
 			)}`,
-			2
+			fillChestDebug
 		);
 	} else {
 		debugMsg(
@@ -517,7 +567,7 @@ function fillChest(island, originPoint) {
 				),
 				true
 			)}`,
-			0
+			fillChestDebug
 		);
 	}
 }
@@ -540,6 +590,7 @@ function finalizeIslandLoot(island, originPoint) {
  * @param {Vector3} originPoint - World origin reference.
  */
 function generateIsland(island, originPoint) {
+	const genIslandDebug = 0;
 	if (!prepareIsland(island)) return;
 
 	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
@@ -550,7 +601,7 @@ function generateIsland(island, originPoint) {
 	waitForChunkLoaded(island.dimension, islandOrigin, () => {
 		buildIslandBlocks(island, originPoint);
 		finalizeIslandLoot(island, originPoint);
-		debugMsg(`${island.name} generation complete.`, 1);
+		debugMsg(`${island.name} generation complete.`, genIslandDebug);
 
 		system.runTimeout(() => {
 			removeTickingArea(island.dimension, tickName);
@@ -566,9 +617,10 @@ function generateIsland(island, originPoint) {
  * @param {number} ticks - Duration in ticks.
  */
 function suspendPlayer(player, location, ticks = 40) {
+	const suspendDebug = 0;
 	const suspend = system.runInterval(() => {
 		player.tryTeleport(location);
-		debugMsg(`${player.name} Suspended.`, 3);
+		debugMsg(`${player.name} Suspended.`, suspendDebug);
 	}, 5);
 
 	system.runTimeout(() => {
@@ -580,10 +632,14 @@ function suspendPlayer(player, location, ticks = 40) {
 // World Initialization Hook
 // --------------------------------------------------
 world.afterEvents.playerSpawn.subscribe((eventData) => {
+	const overworldGenDebug = 0;
 	const { player } = eventData;
 
 	if (world.getDynamicProperty("kado:overworld_unlocked")) {
-		debugMsg(`This world's overworld has already been initialized`, 3);
+		debugMsg(
+			`This world's overworld has already been initialized`,
+			overworldGenDebug
+		);
 		return;
 	}
 
@@ -596,7 +652,7 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 		`Spawn Found: ${coordsString(spawn, true)}\n${
 			player.name
 		} awaiting island generation.`,
-		1
+		overworldGenDebug
 	);
 	suspendPlayer(player, { x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 });
 
@@ -608,7 +664,7 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 		`Dynamic Property: "kado:overworld_unlocked" - ${world.getDynamicProperty(
 			"kado:overworld_unlocked"
 		)}`,
-		3
+		overworldGenDebug
 	);
 });
 
@@ -616,21 +672,31 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 // Nether Initialization Hook
 // --------------------------------------------------
 world.afterEvents.playerDimensionChange.subscribe((eventData) => {
+	const netherGenDebug = 0;
 	const { player, toDimension, toLocation } = eventData;
 
 	if (toDimension.id === "minecraft:overworld") {
-		debugMsg(`This world's overworld has already been initialized`, 3);
+		debugMsg(
+			`This world's overworld has already been initialized`,
+			netherGenDebug
+		);
 		return;
 	} else if (
 		toDimension.id === "minecraft:nether" &&
 		world.getDynamicProperty("kado:nether_unlocked")
 	) {
-		debugMsg(`This world's nether has already been initialized`, 3);
+		debugMsg(
+			`This world's nether has already been initialized`,
+			netherGenDebug
+		);
 		return;
 	} else if (toDimension.id === "minecraft:the_end") return;
 
-	debugMsg(`toLocation: ${coordsString(toLocation, true)}`, 3);
-	debugMsg(`player.location: ${coordsString(player.location, true)}`, 3);
+	debugMsg(`toLocation: ${coordsString(toLocation, true)}`, netherGenDebug);
+	debugMsg(
+		`player.location: ${coordsString(player.location, true)}`,
+		netherGenDebug
+	);
 
 	const origin = {
 		x: toLocation.x,
@@ -652,7 +718,7 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 		`Origin Found: ${coordsString(origin, true)}\n${
 			player.name
 		} awaiting island generation.`,
-		1
+		netherGenDebug
 	);
 
 	for (const island of netherIslands) generateIsland(island, origin);
@@ -664,6 +730,80 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 		)}`,
 		3
 	);
+});
+
+// --------------------------------------------------
+// Renewable Budding Amethyst
+// --------------------------------------------------
+world.afterEvents.itemStopUseOn.subscribe((eventData) => {
+	const reBudAmDebug = 3;
+	const { source: player, block, itemStack } = eventData;
+	if (
+		itemStack.typeId !== "minecraft:water_bucket" ||
+		block.typeId !== "minecraft:smooth_basalt"
+	)
+		return;
+	const rayBlock = player.getBlockFromViewDirection({
+		includeLiquidBlocks: true,
+		maxDistance: 8,
+	});
+	const placedWaterBlock =
+		rayBlock.block.typeId === "minecraft:water" ? rayBlock.block : null;
+	const delay = Math.floor(Math.random() * 36001) + 108000;
+	const { hours, minutes, seconds } = ticksToTime(delay);
+	debugMsg(
+		`Delay: ${delay} ticks\nHours: ${hours}\nMinutes: ${minutes}\nSeconds: ${seconds}`,
+		reBudAmDebug
+	);
+	system.runTimeout(() => {
+		const surrounded = isSurrounded(
+			player.dimension,
+			placedWaterBlock,
+			"minecraft:smooth_basalt"
+		);
+		if (
+			surrounded &&
+			player.dimension.getBlock(placedWaterBlock.location).typeId ===
+				"minecraft:water"
+		) {
+			debugMsg(
+				`Water at ${coordsString(
+					placedWaterBlock,
+					true
+				)} was surrounded and converted to budding amethyst.`,
+				reBudAmDebug
+			);
+			createTickingArea(
+				player.dimension,
+				placedWaterBlock.location,
+				"amethyst"
+			);
+			waitForChunkLoaded(player.dimension, placedWaterBlock.location, () => {
+				player.dimension.setBlockType(
+					placedWaterBlock.location,
+					"minecraft:budding_amethyst"
+				);
+				debugMsg(
+					`Water at Location:\n${coordsString(
+						placedWaterBlock.location,
+						true
+					)}\n was surrounded and converted.`,
+					reBudAmDebug
+				);
+				system.runTimeout(() => {
+					removeTickingArea(player.dimension, "amethyst");
+				}, 20);
+			});
+		} else {
+			debugMsg(
+				`Water at ${coordsString(
+					placedWaterBlock,
+					true
+				)} was not surrounded.`,
+				reBudAmDebug
+			);
+		}
+	}, delay);
 });
 
 // --------------------------------------------------
@@ -694,7 +834,6 @@ world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 		});
 	});
 });
-
 // --------------------------------------------------
 // Scrapped: Vault loot is location based.
 // Even if reusable, gives the same loot every time..
