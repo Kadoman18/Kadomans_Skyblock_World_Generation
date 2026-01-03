@@ -1,10 +1,4 @@
-import {
-	BlockComponentRandomTickEvent,
-	BlockVolume,
-	ItemStack,
-	system,
-	world,
-} from "@minecraft/server";
+import { BlockVolume, ItemStack, system, world } from "@minecraft/server";
 
 // --------------------------------------------------
 // Coordinate System Reference (Bedrock)
@@ -22,7 +16,7 @@ import {
 // Global Debug Toggle
 // --------------------------------------------------
 // Enables verbose console output through debugMsg()
-const debugLevel = 3;
+const debugLevel = 0;
 
 // Island schema overview:
 //
@@ -301,21 +295,42 @@ function ticksToTime(ticks) {
 }
 
 /**
- * Checks if a block is fully surrounded by a specific type.
+ * Checks for a valid block formation to form budding amethyst.
  *
- * @param {Dimension} dimension - The dimension of the block.
- * @param {Block} block - Block to check.
- * @param {string} typeId - Type ID to compare.
- * @returns {boolean} True if surrounded on all sides.
+ * @param {Dimension} dimension - The dimension of the formation.
+ * @param {Block} blockLoc - Center block location (surrounded block which should be water).
+ * @returns {boolean} True if surrounded on all sides, both layers.
  */
-function isSurrounded(dimension, block, typeId) {
+function validGeode(dimension, blockLoc) {
+	const inner = "minecraft:calcite";
+	const outer = "minecraft:smooth_basalt";
 	return (
-		dimension.getBlock(block.location).above().typeId === typeId &&
-		dimension.getBlock(block.location).north().typeId === typeId &&
-		dimension.getBlock(block.location).east().typeId === typeId &&
-		dimension.getBlock(block.location).south().typeId === typeId &&
-		dimension.getBlock(block.location).west().typeId === typeId &&
-		dimension.getBlock(block.location).below().typeId === typeId
+		// Inner
+		dimension.getBlock(blockLoc).above().typeId === inner &&
+		dimension.getBlock(blockLoc).north().typeId === inner &&
+		dimension.getBlock(blockLoc).east().typeId === inner &&
+		dimension.getBlock(blockLoc).south().typeId === inner &&
+		dimension.getBlock(blockLoc).west().typeId === inner &&
+		dimension.getBlock(blockLoc).below().typeId === inner &&
+		// Outer
+		dimension.getBlock(blockLoc).above(2).typeId === outer &&
+		dimension.getBlock(blockLoc).above().north().typeId === outer &&
+		dimension.getBlock(blockLoc).above().east().typeId === outer &&
+		dimension.getBlock(blockLoc).above().south().typeId === outer &&
+		dimension.getBlock(blockLoc).above().west().typeId === outer &&
+		dimension.getBlock(blockLoc).north(2).typeId === outer &&
+		dimension.getBlock(blockLoc).north().east().typeId === outer &&
+		dimension.getBlock(blockLoc).east(2).typeId === outer &&
+		dimension.getBlock(blockLoc).east().south().typeId === outer &&
+		dimension.getBlock(blockLoc).south(2).typeId === outer &&
+		dimension.getBlock(blockLoc).south().west().typeId === outer &&
+		dimension.getBlock(blockLoc).west(2).typeId === outer &&
+		dimension.getBlock(blockLoc).west().north().typeId === outer &&
+		dimension.getBlock(blockLoc).below(2).typeId === outer &&
+		dimension.getBlock(blockLoc).below().north().typeId === outer &&
+		dimension.getBlock(blockLoc).below().east().typeId === outer &&
+		dimension.getBlock(blockLoc).below().south().typeId === outer &&
+		dimension.getBlock(blockLoc).below().west().typeId === outer
 	);
 }
 
@@ -341,7 +356,7 @@ function waitForChunkLoaded(
 ) {
 	let attempts = 0;
 
-	const waitForChunksDebug = 0;
+	const waitForChunksDebug = 1;
 	const handle = system.runInterval(() => {
 		if (dimension.isChunkLoaded(location)) {
 			system.clearRun(handle);
@@ -369,7 +384,7 @@ function waitForChunkLoaded(
 					location,
 					true
 				)} Failed after ${retries} attempts.`,
-				waitForChunksDebug
+				0
 			);
 		}
 	}, interval);
@@ -395,6 +410,8 @@ function prepareIsland(island) {
 	}
 }
 
+const tickDebug = 1;
+
 /**
  * Creates a temporary ticking area around the island.
  *
@@ -408,7 +425,7 @@ function createTickingArea(dimension, location, name) {
 	);
 	debugMsg(
 		`Ticking area "${name}" created at ${coordsString(location, true)}`,
-		2
+		tickDebug
 	);
 }
 
@@ -420,7 +437,7 @@ function createTickingArea(dimension, location, name) {
  */
 function removeTickingArea(dimension, name) {
 	dimension.runCommand(`tickingarea remove ${name}`);
-	debugMsg(`Ticking area "${name}" removed`, 2);
+	debugMsg(`Ticking area "${name}" removed`, tickDebug);
 }
 
 /**
@@ -432,7 +449,7 @@ function removeTickingArea(dimension, name) {
  * @param {Dimension} dimension - Target dimension.
  */
 function applyBlockPermutations(iteration, from, to, dimension) {
-	const applyPermsDebug = 0;
+	const applyPermsDebug = 1;
 	const permId = iteration.perms.perm;
 	const permValue = iteration.perms.value;
 
@@ -481,7 +498,7 @@ function applyBlockPermutations(iteration, from, to, dimension) {
  * @param {Vector3} originPoint - World origin reference.
  */
 function buildIslandBlocks(island, originPoint) {
-	const buildIslandDebug = 0;
+	const buildIslandDebug = 1;
 	const dimension = island.dimension;
 	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
 
@@ -522,7 +539,7 @@ function buildIslandBlocks(island, originPoint) {
  * @param {Vector3} originPoint - World origin reference.
  */
 function fillChest(island, originPoint) {
-	const fillChestDebug = 0;
+	const fillChestDebug = 1;
 	const dimension = island.dimension;
 	const chestBlock = dimension.getBlock(
 		calculateOffsets(
@@ -567,7 +584,7 @@ function fillChest(island, originPoint) {
 				),
 				true
 			)}`,
-			fillChestDebug
+			0
 		);
 	}
 }
@@ -590,7 +607,7 @@ function finalizeIslandLoot(island, originPoint) {
  * @param {Vector3} originPoint - World origin reference.
  */
 function generateIsland(island, originPoint) {
-	const genIslandDebug = 0;
+	const genIslandDebug = 1;
 	if (!prepareIsland(island)) return;
 
 	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
@@ -617,10 +634,9 @@ function generateIsland(island, originPoint) {
  * @param {number} ticks - Duration in ticks.
  */
 function suspendPlayer(player, location, ticks = 40) {
-	const suspendDebug = 0;
 	const suspend = system.runInterval(() => {
 		player.tryTeleport(location);
-		debugMsg(`${player.name} Suspended.`, suspendDebug);
+		debugMsg(`${player.name} Suspended.`, 3);
 	}, 5);
 
 	system.runTimeout(() => {
@@ -632,7 +648,7 @@ function suspendPlayer(player, location, ticks = 40) {
 // World Initialization Hook
 // --------------------------------------------------
 world.afterEvents.playerSpawn.subscribe((eventData) => {
-	const overworldGenDebug = 0;
+	const overworldGenDebug = 1;
 	const { player } = eventData;
 
 	if (world.getDynamicProperty("kado:overworld_unlocked")) {
@@ -672,7 +688,7 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 // Nether Initialization Hook
 // --------------------------------------------------
 world.afterEvents.playerDimensionChange.subscribe((eventData) => {
-	const netherGenDebug = 0;
+	const netherGenDebug = 1;
 	const { player, toDimension, toLocation } = eventData;
 
 	if (toDimension.id === "minecraft:overworld") {
@@ -736,13 +752,9 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 // Renewable Budding Amethyst
 // --------------------------------------------------
 world.afterEvents.itemStopUseOn.subscribe((eventData) => {
-	const reBudAmDebug = 3;
-	const { source: player, block, itemStack } = eventData;
-	if (
-		itemStack.typeId !== "minecraft:water_bucket" ||
-		block.typeId !== "minecraft:smooth_basalt"
-	)
-		return;
+	const reBudAmDebug = 1;
+	const { source: player, itemStack } = eventData;
+	if (itemStack.typeId !== "minecraft:water_bucket") return;
 	const rayBlock = player.getBlockFromViewDirection({
 		includeLiquidBlocks: true,
 		maxDistance: 8,
@@ -756,10 +768,16 @@ world.afterEvents.itemStopUseOn.subscribe((eventData) => {
 		reBudAmDebug
 	);
 	system.runTimeout(() => {
-		const surrounded = isSurrounded(
+		const preSurrounded = validGeode(
 			player.dimension,
-			placedWaterBlock,
-			"minecraft:smooth_basalt"
+			placedWaterBlock.location
+		);
+		debugMsg(`Surrounded: ${preSurrounded}`, reBudAmDebug);
+	}, 150);
+	system.runTimeout(() => {
+		const surrounded = validGeode(
+			player.dimension,
+			placedWaterBlock.location
 		);
 		if (
 			surrounded &&
