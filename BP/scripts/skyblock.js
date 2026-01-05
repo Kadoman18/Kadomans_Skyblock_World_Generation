@@ -16,7 +16,7 @@ import { BlockVolume, ItemStack, system, world } from "@minecraft/server";
 // Global Debug Toggle
 // --------------------------------------------------
 // Enables verbose console output through debugMsg()
-const debugLevel = 0;
+const debugLevel = 1;
 
 // Island schema overview:
 //
@@ -749,7 +749,7 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 });
 
 // --------------------------------------------------
-// Renewable Budding Amethyst
+// Item Stop Use Hook for Renewable Budding Amethyst
 // --------------------------------------------------
 world.afterEvents.itemStopUseOn.subscribe((eventData) => {
 	const reBudAmDebug = 1;
@@ -825,7 +825,8 @@ world.afterEvents.itemStopUseOn.subscribe((eventData) => {
 });
 
 // --------------------------------------------------
-// Silk Touch Budding Amethyst / Renewable Spore Blossoms
+// Before Player Break Block Hook for:
+// Silk Touch Budding Amethyst & Renewable Spore Blossoms
 // --------------------------------------------------
 world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 	const breakBlockDebug = 1;
@@ -854,7 +855,7 @@ world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 	}
 
 	// ------------------------------------------
-	// Flowering azalea (fortune-scaled)
+	// Flowering azalea (Fortune-scaled)
 	// ------------------------------------------
 	if (block.typeId === "minecraft:azalea_leaves_flowered" && !hasSilkTouch) {
 		const dropChance = 0.01 * (1 + fortuneLevel);
@@ -868,7 +869,7 @@ world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 	}
 
 	// ------------------------------------------
-	// Budding amethyst (silk touch only)
+	// Budding amethyst (Silk Touch only)
 	// ------------------------------------------
 	if (
 		!doSpawn &&
@@ -899,6 +900,75 @@ world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 			z: block.location.z + 0.5,
 		});
 	});
+});
+
+const reDeSlateDebug = 3;
+// --------------------------------------------------
+// Item Use Hook for Renewable Deepslate
+// --------------------------------------------------
+world.afterEvents.itemUse.subscribe((eventData) => {
+	const { source, itemStack } = eventData;
+
+	if (
+		source.typeId !== "minecraft:player" ||
+		(itemStack.typeId === "minecraft:splash_potion" &&
+			itemStack.localizationKey !== "%potion.thick.splash.name")
+	) {
+		return;
+	}
+
+	source.setDynamicProperty("kado:threwThickPotion", true);
+
+	debugMsg(`Dynamic Property Set`, reDeSlateDebug);
+});
+
+// --------------------------------------------------
+// Projectile Hit Block Hook for Renewable Deepslate
+// --------------------------------------------------
+world.afterEvents.projectileHitBlock.subscribe((eventData) => {
+	const { dimension, location, projectile, source } = eventData;
+	if (
+		!source.getDynamicProperty("kado:threwThickPotion") ||
+		projectile.typeId !== "minecraft:splash_potion"
+	)
+		return;
+
+	source.setDynamicProperty("kado:threwThickPotion", false);
+
+	const blockHitCenter = {
+		x: Math.floor(location.x) + 0.5,
+		y: Math.floor(location.y) + 0.5,
+		z: Math.floor(location.z) + 0.5,
+	};
+
+	debugMsg(
+		`${source.name} threw a thick potion and it landed at ${coordsString(
+			blockHitCenter,
+			true
+		)}.`,
+		reDeSlateDebug
+	);
+
+	const radius = 2;
+
+	const blockHitsVol = new BlockVolume(
+		{
+			x: blockHitCenter.x + radius,
+			y: blockHitCenter.y + radius,
+			z: blockHitCenter.z + radius,
+		},
+		{
+			x: blockHitCenter.x - radius,
+			y: blockHitCenter.y - radius,
+			z: blockHitCenter.z - radius,
+		}
+	);
+
+	const blockHits = dimension.getBlocks(blockHitsVol, {
+		includeTypes: ["minecraft:stone"],
+	});
+
+	dimension.fillBlocks(blockHits, "minecraft:deepslate");
 });
 
 // --------------------------------------------------
