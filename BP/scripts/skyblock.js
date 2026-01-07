@@ -3,6 +3,9 @@ import { BlockVolume, ItemStack, system, world } from "@minecraft/server";
 // --------------------------------------------------
 // Coordinate System Reference (Bedrock)
 // --------------------------------------------------
+//
+// Origin: Lower North West Corner
+//
 // North: >>>>>>>>> (-z) - (Backwards)
 // Northeast: > (+x, -z) - (Back-Left)
 // East: >>>>>>>>>> (+x) - (Left)
@@ -16,7 +19,18 @@ import { BlockVolume, ItemStack, system, world } from "@minecraft/server";
 // Global Debug Toggle
 // --------------------------------------------------
 // Enables verbose console output through debugMsg()
-const debugLevel = 1;
+const globalDebugLevel = 0;
+const waitForChunksDebug = 1;
+const tickingAreasDebug = 1;
+const applyPermsDebug = 1;
+const fillChestDebug = 1;
+const genIslandDebug = 1;
+const buildIslandDebug = 1;
+const overworldGenDebug = 1;
+const netherGenDebug = 1;
+const reBudAmDebug = 1;
+const breakBlockDebug = 1;
+const reDeSlateDebug = 1;
 
 // Island schema overview:
 //
@@ -250,7 +264,7 @@ function debugMsg(message, level) {
 		console.warn(message);
 		return;
 	}
-	if (debugLevel >= level) console.log(message);
+	if (globalDebugLevel >= level) console.log(message);
 }
 
 /**
@@ -356,7 +370,6 @@ function waitForChunkLoaded(
 ) {
 	let attempts = 0;
 
-	const waitForChunksDebug = 1;
 	const handle = system.runInterval(() => {
 		if (dimension.isChunkLoaded(location)) {
 			system.clearRun(handle);
@@ -410,8 +423,6 @@ function prepareIsland(island) {
 	}
 }
 
-const tickDebug = 1;
-
 /**
  * Creates a temporary ticking area around the island.
  *
@@ -425,7 +436,7 @@ function createTickingArea(dimension, location, name) {
 	);
 	debugMsg(
 		`Ticking area "${name}" created at ${coordsString(location, true)}`,
-		tickDebug
+		tickingAreasDebug
 	);
 }
 
@@ -437,7 +448,7 @@ function createTickingArea(dimension, location, name) {
  */
 function removeTickingArea(dimension, name) {
 	dimension.runCommand(`tickingarea remove ${name}`);
-	debugMsg(`Ticking area "${name}" removed`, tickDebug);
+	debugMsg(`Ticking area "${name}" removed`, tickingAreasDebug);
 }
 
 /**
@@ -449,7 +460,6 @@ function removeTickingArea(dimension, name) {
  * @param {Dimension} dimension - Target dimension.
  */
 function applyBlockPermutations(iteration, from, to, dimension) {
-	const applyPermsDebug = 1;
 	const permId = iteration.perms.perm;
 	const permValue = iteration.perms.value;
 
@@ -498,7 +508,6 @@ function applyBlockPermutations(iteration, from, to, dimension) {
  * @param {Vector3} originPoint - World origin reference.
  */
 function buildIslandBlocks(island, originPoint) {
-	const buildIslandDebug = 1;
 	const dimension = island.dimension;
 	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
 
@@ -539,7 +548,6 @@ function buildIslandBlocks(island, originPoint) {
  * @param {Vector3} originPoint - World origin reference.
  */
 function fillChest(island, originPoint) {
-	const fillChestDebug = 1;
 	const dimension = island.dimension;
 	const chestBlock = dimension.getBlock(
 		calculateOffsets(
@@ -601,13 +609,30 @@ function finalizeIslandLoot(island, originPoint) {
 }
 
 /**
+ * Suspends a player in the air for island generation.
+ *
+ * @param {Player} player - Player to suspend.
+ * @param {Vector3} location - Location to teleport repeatedly.
+ * @param {number} ticks - Duration in ticks.
+ */
+function suspendPlayer(player, location, ticks = 40) {
+	const suspend = system.runInterval(() => {
+		player.tryTeleport(location);
+		debugMsg(`${player.name} Suspended.`, 3);
+	}, 5);
+
+	system.runTimeout(() => {
+		system.clearRun(suspend);
+	}, ticks);
+}
+
+/**
  * Generates an island including ticking area, blocks, and loot.
  *
  * @param {object} island - Island object.
  * @param {Vector3} originPoint - World origin reference.
  */
 function generateIsland(island, originPoint) {
-	const genIslandDebug = 1;
 	if (!prepareIsland(island)) return;
 
 	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
@@ -626,29 +651,10 @@ function generateIsland(island, originPoint) {
 	});
 }
 
-/**
- * Suspends a player in the air for island generation.
- *
- * @param {Player} player - Player to suspend.
- * @param {Vector3} location - Location to teleport repeatedly.
- * @param {number} ticks - Duration in ticks.
- */
-function suspendPlayer(player, location, ticks = 40) {
-	const suspend = system.runInterval(() => {
-		player.tryTeleport(location);
-		debugMsg(`${player.name} Suspended.`, 3);
-	}, 5);
-
-	system.runTimeout(() => {
-		system.clearRun(suspend);
-	}, ticks);
-}
-
 // --------------------------------------------------
 // World Initialization Hook
 // --------------------------------------------------
 world.afterEvents.playerSpawn.subscribe((eventData) => {
-	const overworldGenDebug = 1;
 	const { player } = eventData;
 
 	if (world.getDynamicProperty("kado:overworld_unlocked")) {
@@ -688,7 +694,6 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 // Nether Initialization Hook
 // --------------------------------------------------
 world.afterEvents.playerDimensionChange.subscribe((eventData) => {
-	const netherGenDebug = 1;
 	const { player, toDimension, toLocation } = eventData;
 
 	if (toDimension.id === "minecraft:overworld") {
@@ -752,7 +757,6 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 // Item Stop Use Hook for Renewable Budding Amethyst
 // --------------------------------------------------
 world.afterEvents.itemStopUseOn.subscribe((eventData) => {
-	const reBudAmDebug = 1;
 	const { source: player, itemStack } = eventData;
 	if (itemStack?.typeId !== "minecraft:water_bucket") return;
 	const rayBlock = player.getBlockFromViewDirection({
@@ -829,7 +833,6 @@ world.afterEvents.itemStopUseOn.subscribe((eventData) => {
 // Silk Touch Budding Amethyst & Renewable Spore Blossoms
 // --------------------------------------------------
 world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
-	const breakBlockDebug = 1;
 	const { player, block, itemStack } = eventData;
 	if (
 		player.getGameMode() !== "Survival" ||
@@ -902,7 +905,6 @@ world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 	});
 });
 
-const reDeSlateDebug = 3;
 // --------------------------------------------------
 // Item Use Hook for Renewable Deepslate
 // --------------------------------------------------
@@ -911,56 +913,124 @@ world.afterEvents.itemUse.subscribe((eventData) => {
 
 	if (
 		source.typeId !== "minecraft:player" ||
-		(itemStack.typeId === "minecraft:splash_potion" &&
-			itemStack.localizationKey !== "%potion.thick.splash.name")
-	) {
-		return;
-	}
-
-	source.setDynamicProperty("kado:threwThickPotion", true);
-
-	debugMsg(`Dynamic Property Set`, reDeSlateDebug);
-});
-
-// --------------------------------------------------
-// Projectile Hit Block Hook for Renewable Deepslate
-// --------------------------------------------------
-world.afterEvents.projectileHitBlock.subscribe((eventData) => {
-	const { dimension, location, projectile, source } = eventData;
-	if (
-		!source.getDynamicProperty("kado:threwThickPotion") ||
-		projectile.typeId !== "minecraft:splash_potion"
+		itemStack.typeId !== "minecraft:splash_potion" ||
+		itemStack.localizationKey !== "%potion.thick.splash.name"
 	)
 		return;
 
-	source.setDynamicProperty("kado:threwThickPotion", false);
+	source.addTag("kado:threwThickPotion");
 
-	const blockHitCenter = {
-		x: Math.floor(location.x) + 0.5,
-		y: Math.floor(location.y) + 0.5,
-		z: Math.floor(location.z) + 0.5,
-	};
+	debugMsg(`${source.name} threw a Thick Splash Potion`, reDeSlateDebug);
+});
+
+// --------------------------------------------------
+// Entity Spawn Hook for Renewable Deepslate
+// --------------------------------------------------
+world.afterEvents.entitySpawn.subscribe((eventData) => {
+	const entity = eventData.entity;
+
+	if (entity.typeId !== "minecraft:splash_potion") return;
+
+	const source = entity.getComponent("minecraft:projectile")?.owner;
+
+	if (
+		source?.typeId !== "minecraft:player" ||
+		!source?.hasTag("kado:threwThickPotion")
+	)
+		return;
+
+	entity.addTag("kado:isThickPotion");
 
 	debugMsg(
-		`${source.name} threw a thick potion and it landed at ${coordsString(
-			blockHitCenter,
-			true
-		)}.`,
+		`Marked splash potion ${entity.id} as Thick Potion`,
+		reDeSlateDebug
+	);
+});
+
+world.afterEvents.projectileHitBlock.subscribe((eventData) => {
+	const { dimension, hitVector, location, projectile, source } = eventData;
+
+	if (
+		projectile.typeId !== "minecraft:splash_potion" ||
+		!source.hasTag("kado:threwThickPotion")
+	)
+		return;
+
+	source.removeTag("kado:threwThickPotion");
+
+	let face;
+
+	const absX = Math.abs(hitVector.x);
+	const absY = Math.abs(hitVector.y);
+	const absZ = Math.abs(hitVector.z);
+
+	if (absX > absY && absX > absZ) {
+		face = hitVector.x > 0 ? "west" : "east";
+	} else if (absY > absX && absY > absZ) {
+		face = hitVector.y > 0 ? "down" : "up";
+	} else {
+		face = hitVector.z > 0 ? "north" : "south";
+	}
+
+	debugMsg(
+		`Potion hit face: "${face}" at ${coordsString(location, true)}`,
 		reDeSlateDebug
 	);
 
-	const radius = 2;
+	let effectCenter;
+
+	switch (face) {
+		case "north": {
+			effectCenter = {
+				x: Math.floor(location.x) + 0.5,
+				y: Math.floor(location.y) + 0.5,
+				z: Math.floor(location.z) - 0.5,
+			};
+			break;
+		}
+		case "west": {
+			effectCenter = {
+				x: Math.floor(location.x) - 0.5,
+				y: Math.floor(location.y) + 0.5,
+				z: Math.floor(location.z) + 0.5,
+			};
+			break;
+		}
+		case "down": {
+			effectCenter = {
+				x: Math.floor(location.x) + 0.5,
+				y: Math.floor(location.y) - 0.5,
+				z: Math.floor(location.z) + 0.5,
+			};
+			break;
+		}
+		default: {
+			effectCenter = {
+				x: Math.floor(location.x) + 0.5,
+				y: Math.floor(location.y) + 0.5,
+				z: Math.floor(location.z) + 0.5,
+			};
+			break;
+		}
+	}
+
+	debugMsg(
+		`Effect location calculated to ${coordsString(effectCenter, true)}.`,
+		reDeSlateDebug
+	);
+
+	const radius = 1.4;
 
 	const blockHitsVol = new BlockVolume(
 		{
-			x: blockHitCenter.x + radius,
-			y: blockHitCenter.y + radius,
-			z: blockHitCenter.z + radius,
+			x: effectCenter.x + radius,
+			y: effectCenter.y + radius,
+			z: effectCenter.z + radius,
 		},
 		{
-			x: blockHitCenter.x - radius,
-			y: blockHitCenter.y - radius,
-			z: blockHitCenter.z - radius,
+			x: effectCenter.x - radius,
+			y: effectCenter.y - radius,
+			z: effectCenter.z - radius,
 		}
 	);
 
@@ -970,36 +1040,3 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 
 	dimension.fillBlocks(blockHits, "minecraft:deepslate");
 });
-
-// --------------------------------------------------
-// Scrapped: Vault loot is location based.
-// Even if reusable, gives the same loot every time..
-// --------------------------------------------------
-/*
-world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
-	const { player, block, itemStack } = eventData;
-	const acceptedItems = ["minecraft:trial_key", "minecraft:ominous_trial_key"];
-	if (block.typeId !== "minecraft:vault" || !itemStack.typeId in acceptedItems)
-		return;
-	const ominous = block.permutation.getState("ominous");
-	if (ominous && itemStack.typeId === "minecraft:ominous_trial_key") {
-		system.runTimeout(() => {
-			player.runCommand(
-				`structure load ominousVault ${coordsString(block.location, false)}`
-			);
-		}, 130);
-	} else if (!ominous && itemStack.typeId === "minecraft:trial_key") {
-		system.runTimeout(() => {
-			player.runCommand(
-				`structure load vault ${coordsString(block.location, false)}`
-			);
-		}, 130);
-	} else {
-		return;
-	}
-	debugMsg(
-		`${player.name} interacted with a ${block.typeId} while holding ${itemStack.amount} ${itemStack.typeId}s`,
-		2
-	);
-});
-*/
