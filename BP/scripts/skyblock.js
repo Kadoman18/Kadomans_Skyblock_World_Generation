@@ -19,7 +19,7 @@ import { BlockVolume, ItemStack, system, world } from "@minecraft/server";
 // Global Debug Toggle
 // --------------------------------------------------
 // Enables verbose console output through debugMsg()
-const globalDebugLevel = 0;
+const globalDebugLevel = 3;
 const waitForChunksDebug = 1;
 const tickingAreasDebug = 1;
 const applyPermsDebug = 1;
@@ -1039,4 +1039,109 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 	});
 
 	dimension.fillBlocks(blockHits, "minecraft:deepslate");
+});
+
+// --------------------------------------------------
+// Reusable Custom Vaults
+// --------------------------------------------------
+system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
+	blockComponentRegistry.registerCustomComponent("kado:trial_vault", {
+		onPlace(eventData) {
+			const block = eventData.block;
+			const permutation = block.permutation;
+
+			// Default placement state
+			block.setPermutation(
+				permutation
+					.withState("kado:vault_type", "normal")
+					.withState("kado:vault_state", "inactive")
+			);
+		},
+
+		onPlayerInteract(eventData) {
+			const { dimension, player, block, face, faceLocation } = eventData;
+			const inventory = player.getComponent("minecraft:inventory");
+			const mainHand = inventory.container?.getItem(
+				player.selectedSlotIndex
+			);
+
+			if (
+				player.getGameMode() !== "Creative" &&
+				player.getGameMode() !== "Survival"
+			)
+				return;
+
+			debugMsg(
+				`Gamemode: ${player.getGameMode()}\nItem: ${mainHand?.typeId}`,
+				3
+			);
+
+			const permutation = block.permutation;
+			const vaultType = block.permutation.getState("kado:vault_type");
+
+			if (
+				player.getGameMode() === "Creative" &&
+				mainHand?.typeId !== "minecraft:trial_key" &&
+				mainHand?.typeId !== "minecraft:ominous_trial_key"
+			) {
+				block.setPermutation(
+					permutation.withState(
+						"kado:vault_type",
+						block.permutation.getState("kado:vault_type") === "normal"
+							? "ominous"
+							: "normal"
+					)
+				);
+				debugMsg(
+					`Permutation set to ${block.permutation.getState(
+						"kado:vault_type"
+					)}`,
+					3
+				);
+				return;
+			}
+			const keyType = mainHand?.typeId;
+			if (
+				(keyType === "minecraft:trial_key" && vaultType !== "normal") ||
+				(keyType === "minecraft:ominous_trial_key" &&
+					vaultType !== "ominous") ||
+				player.getGameMode() !== "Survival"
+			)
+				return;
+
+			if (mainHand.amount > 1) {
+				inventory.container.setItem(
+					player.selectedSlotIndex,
+					new ItemStack(keyType, mainHand.amount - 1)
+				);
+			} else {
+				inventory.container.setItem(player.selectedSlotIndex, undefined);
+			}
+
+			let newState;
+
+			switch (block.permutation.getState("kado:vault_state")) {
+				case "active":
+					newState = "dispensing";
+					break;
+				case "dispensing":
+					newState = "inactive";
+					break;
+				case "inactive":
+					newState = "active";
+					break;
+			}
+
+			block.setPermutation(
+				permutation.withState("kado:vault_state", newState)
+			);
+
+			debugMsg(
+				`Permutation set to ${block.permutation.getState(
+					"kado:vault_state"
+				)}`,
+				3
+			);
+		},
+	});
 });

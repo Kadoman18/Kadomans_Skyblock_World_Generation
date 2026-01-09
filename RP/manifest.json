@@ -1,0 +1,25 @@
+{
+	"format_version": 2,
+	"header": {
+		"min_engine_version": [1, 21, 130],
+		"name": "Skyblock Generation (RP)",
+		"description": "Enables void world generation while keeping biome mapping",
+		"uuid": "4e7ed09c-d7fa-49dd-b69d-962a91f2c125",
+		"version": [1, 0, 0]
+	},
+	"modules": [
+		{
+			"type": "resources",
+			"description": "First Iteration",
+			"uuid": "c9d88771-13c6-48c6-acca-d9cf6eaf4a56",
+			"version": [1, 0, 0]
+		}
+	],
+	"dependencies": [
+		{
+			"uuid": "cd3dbc3f-4905-4e5c-aaf5-c0e8b70b7d21",
+			"version": [1, 1, 16]
+		}
+	],
+	"metadata": { "authors": ["Kadoman18"] }
+}

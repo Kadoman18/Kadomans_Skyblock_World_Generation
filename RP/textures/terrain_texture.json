@@ -1,0 +1,56 @@
+{
+	"resource_pack_name": "Skyblock",
+	"texture_name": "atlas.terrain",
+	"padding": 8,
+	"num_mip_levels": 4,
+	"texture_data": {
+		"vault_top": {
+			"textures": "textures/blocks/vault_top"
+		},
+		"vault_top_ejecting": {
+			"textures": "textures/blocks/vault_top_ejecting"
+		},
+		"vault_top_ominous": {
+			"textures": "textures/blocks/vault_top_ominous"
+		},
+		"vault_top_ejecting_ominous": {
+			"textures": "textures/blocks/vault_top_ejecting_ominous"
+		},
+		"vault_bottom": {
+			"textures": "textures/blocks/vault_bottom"
+		},
+		"vault_bottom_ominous": {
+			"textures": "textures/blocks/vault_bottom_ominous"
+		},
+		"vault_side_off": {
+			"textures": "textures/blocks/vault_side_off"
+		},
+		"vault_side_on": {
+			"textures": "textures/blocks/vault_side_on"
+		},
+		"vault_side_off_ominous": {
+			"textures": "textures/blocks/vault_side_off_ominous"
+		},
+		"vault_side_on_ominous": {
+			"textures": "textures/blocks/vault_side_on_ominous"
+		},
+		"vault_front_off": {
+			"textures": "textures/blocks/vault_front_off"
+		},
+		"vault_front_on": {
+			"textures": "textures/blocks/vault_front_on"
+		},
+		"vault_front_ejecting": {
+			"textures": "textures/blocks/vault_front_ejecting"
+		},
+		"vault_front_off_ominous": {
+			"textures": "textures/blocks/vault_front_off_ominous"
+		},
+		"vault_front_on_ominous": {
+			"textures": "textures/blocks/vault_front_on_ominous"
+		},
+		"vault_front_ejecting_ominous": {
+			"textures": "textures/blocks/vault_front_ejecting_ominous"
+		}
+	}
+}

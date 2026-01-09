@@ -1,0 +1,234 @@
+{
+	"format_version": "1.21.0",
+	"minecraft:block": {
+		"description": {
+			"identifier": "kado:vault",
+			"menu_category": {
+				"category": "construction"
+			},
+			"traits": {
+				"minecraft:placement_direction": {
+					"enabled_states": ["minecraft:cardinal_direction"],
+					"y_rotation_offset": 180
+				}
+			},
+			"states": {
+				"kado:vault_type": ["normal", "ominous"],
+				"kado:vault_state": ["active", "inactive", "dispensing"]
+			}
+		},
+		"components": {
+			"kado:trial_vault": {},
+			"minecraft:destructible_by_mining": false,
+			"minecraft:destructible_by_explosion": false,
+			"minecraft:light_emission": 4,
+			"minecraft:map_color": "#8c8c8c",
+			"minecraft:geometry": "minecraft:geometry.full_block",
+			"minecraft:material_instances": {
+				"*": { "texture": "diamond_block", "render_method": "alpha_test" }
+			}
+		},
+		"permutations": [
+			// Rotation
+
+			{
+				"condition": "q.block_state('minecraft:cardinal_direction') == 'north'",
+				"components": {
+					"minecraft:transformation": { "rotation": [0, 0, 0] }
+				}
+			},
+			{
+				"condition": "q.block_state('minecraft:cardinal_direction') == 'west'",
+				"components": {
+					"minecraft:transformation": { "rotation": [0, 90, 0] }
+				}
+			},
+			{
+				"condition": "q.block_state('minecraft:cardinal_direction') == 'south'",
+				"components": {
+					"minecraft:transformation": { "rotation": [0, 180, 0] }
+				}
+			},
+			{
+				"condition": "q.block_state('minecraft:cardinal_direction') == 'east'",
+				"components": {
+					"minecraft:transformation": { "rotation": [0, -90, 0] }
+				}
+			},
+
+			// NORMAL – INACTIVE
+
+			{
+				"condition": "q.block_state('kado:vault_type') == 'normal' && q.block_state('kado:vault_state') == 'inactive'",
+				"components": {
+					"minecraft:material_instances": {
+						"up": {
+							"texture": "vault_top",
+							"render_method": "alpha_test"
+						},
+						"down": {
+							"texture": "vault_bottom",
+							"render_method": "alpha_test"
+						},
+						"side": {
+							"texture": "vault_side_off",
+							"render_method": "alpha_test"
+						},
+						"north": {
+							"texture": "vault_front_off",
+							"render_method": "alpha_test"
+						},
+						"east": "side",
+						"south": "side",
+						"west": "side"
+					}
+				}
+			},
+
+			// NORMAL – ACTIVE
+
+			{
+				"condition": "q.block_state('kado:vault_type') == 'normal' && q.block_state('kado:vault_state') == 'active'",
+				"components": {
+					"minecraft:material_instances": {
+						"up": {
+							"texture": "vault_top",
+							"render_method": "alpha_test"
+						},
+						"down": {
+							"texture": "vault_bottom",
+							"render_method": "alpha_test"
+						},
+						"side": {
+							"texture": "vault_side_on",
+							"render_method": "alpha_test"
+						},
+						"north": {
+							"texture": "vault_front_on",
+							"render_method": "alpha_test"
+						},
+						"east": "side",
+						"south": "side",
+						"west": "side"
+					}
+				}
+			},
+
+			// NORMAL – DISPENSING
+
+			{
+				"condition": "q.block_state('kado:vault_type') == 'normal' && q.block_state('kado:vault_state') == 'dispensing'",
+				"components": {
+					"minecraft:material_instances": {
+						"up": {
+							"texture": "vault_top_ejecting",
+							"render_method": "alpha_test"
+						},
+						"down": {
+							"texture": "vault_bottom",
+							"render_method": "alpha_test"
+						},
+						"side": {
+							"texture": "vault_side_on",
+							"render_method": "alpha_test"
+						},
+						"north": {
+							"texture": "vault_front_ejecting",
+							"render_method": "alpha_test"
+						},
+						"east": "side",
+						"south": "side",
+						"west": "side"
+					}
+				}
+			},
+
+			// OMINOUS – INACTIVE
+
+			{
+				"condition": "q.block_state('kado:vault_type') == 'ominous' && q.block_state('kado:vault_state') == 'inactive'",
+				"components": {
+					"minecraft:material_instances": {
+						"up": {
+							"texture": "vault_top_ominous",
+							"render_method": "alpha_test"
+						},
+						"down": {
+							"texture": "vault_bottom_ominous",
+							"render_method": "alpha_test"
+						},
+						"side": {
+							"texture": "vault_side_off_ominous",
+							"render_method": "alpha_test"
+						},
+						"north": {
+							"texture": "vault_front_off_ominous",
+							"render_method": "alpha_test"
+						},
+						"east": "side",
+						"south": "side",
+						"west": "side"
+					}
+				}
+			},
+
+			// OMINOUS – ACTIVE
+
+			{
+				"condition": "q.block_state('kado:vault_type') == 'ominous' && q.block_state('kado:vault_state') == 'active'",
+				"components": {
+					"minecraft:material_instances": {
+						"up": {
+							"texture": "vault_top_ominous",
+							"render_method": "alpha_test"
+						},
+						"down": {
+							"texture": "vault_bottom_ominous",
+							"render_method": "alpha_test"
+						},
+						"side": {
+							"texture": "vault_side_on_ominous",
+							"render_method": "alpha_test"
+						},
+						"north": {
+							"texture": "vault_front_on_ominous",
+							"render_method": "alpha_test"
+						},
+						"east": "side",
+						"south": "side",
+						"west": "side"
+					}
+				}
+			},
+
+			// OMINOUS – DISPENSING
+
+			{
+				"condition": "q.block_state('kado:vault_type') == 'ominous' && q.block_state('kado:vault_state') == 'dispensing'",
+				"components": {
+					"minecraft:material_instances": {
+						"up": {
+							"texture": "vault_top_ejecting_ominous",
+							"render_method": "alpha_test"
+						},
+						"down": {
+							"texture": "vault_bottom_ominous",
+							"render_method": "alpha_test"
+						},
+						"side": {
+							"texture": "vault_side_on_ominous",
+							"render_method": "alpha_test"
+						},
+						"north": {
+							"texture": "vault_front_ejecting_ominous",
+							"render_method": "alpha_test"
+						},
+						"east": "side",
+						"south": "side",
+						"west": "side"
+					}
+				}
+			}
+		]
+	}
+}
