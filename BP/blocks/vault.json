@@ -19,9 +19,9 @@
 		},
 		"components": {
 			"kado:trial_vault": {},
+			"minecraft:tick": { "interval_range": [10, 10] },
 			"minecraft:destructible_by_mining": false,
 			"minecraft:destructible_by_explosion": false,
-			"minecraft:light_emission": 4,
 			"minecraft:map_color": "#8c8c8c",
 			"minecraft:geometry": "minecraft:geometry.full_block",
 			"minecraft:material_instances": {
@@ -110,7 +110,8 @@
 						"east": "side",
 						"south": "side",
 						"west": "side"
-					}
+					},
+					"minecraft:light_emission": 4
 				}
 			},
 
@@ -139,7 +140,8 @@
 						"east": "side",
 						"south": "side",
 						"west": "side"
-					}
+					},
+					"minecraft:light_emission": 4
 				}
 			},
 
@@ -197,7 +199,8 @@
 						"east": "side",
 						"south": "side",
 						"west": "side"
-					}
+					},
+					"minecraft:light_emission": 4
 				}
 			},
 
@@ -226,7 +229,8 @@
 						"east": "side",
 						"south": "side",
 						"west": "side"
-					}
+					},
+					"minecraft:light_emission": 4
 				}
 			}
 		]

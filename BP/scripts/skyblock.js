@@ -1,4 +1,10 @@
-import { BlockVolume, ItemStack, system, world } from "@minecraft/server";
+import {
+	BlockVolume,
+	ItemStack,
+	LootTableManager,
+	system,
+	world,
+} from "@minecraft/server";
 
 // --------------------------------------------------
 // Coordinate System Reference (Bedrock)
@@ -1041,14 +1047,127 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 	dimension.fillBlocks(blockHits, "minecraft:deepslate");
 });
 
+// Core RNG Helpers
+function randomInt(min, max) {
+	return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function rollChance(chance) {
+	return Math.random() < chance;
+}
+
+function resolveRolls(rolls) {
+	if (typeof rolls === "number") return rolls;
+	return randomInt(rolls.min, rolls.max);
+}
+
+// Weighted Entry Section
+function pickWeighted(entries) {
+	let totalWeight = 0;
+
+	for (const e of entries) totalWeight += e.weight ?? 1;
+
+	let roll = Math.random() * totalWeight;
+
+	for (const e of entries) {
+		roll -= e.weight ?? 1;
+		if (roll <= 0) return e;
+	}
+
+	return entries[entries.length - 1];
+}
+
 // --------------------------------------------------
 // Reusable Custom Vaults
 // --------------------------------------------------
 system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 	blockComponentRegistry.registerCustomComponent("kado:trial_vault", {
+		onTick(eventData) {
+			const { block, dimension } = eventData;
+			const activationDist = 3.75;
+			const particleLoc = {
+				x: block.location.x + Math.random() * 0.8 + 0.1,
+				y: block.location.y + Math.random() * 0.8 + 0.1,
+				z: block.location.z + Math.random() * 0.8 + 0.1,
+			};
+			dimension.spawnParticle("minecraft:basic_smoke_particle", particleLoc);
+			for (const player of world.getAllPlayers()) {
+				let cooldown = player?.getDynamicProperty(
+					`${block.id}${(coordsString(block.location), false)}`
+				);
+				if (!cooldown)
+					player.setDynamicProperty(
+						`${block.id}${(coordsString(block.location), false)}`,
+						0
+					);
+				if (cooldown > 0) {
+					player.setDynamicProperty(
+						`${block.id}${(coordsString(block.location), false)}`,
+						cooldown - 10
+					);
+					block.setPermutation(
+						block.permutation.withState("kado:vault_state", "inactive")
+					);
+					return;
+				}
+			}
+
+			let isPlayerNear = false;
+
+			if (block.permutation.getState("kado:vault_state") === "dispensing")
+				return;
+			for (const player of dimension.getPlayers()) {
+				const xDist = Math.abs(block.location.x - player.location.x);
+				const yDist = Math.abs(block.location.y - player.location.y);
+				const zDist = Math.abs(block.location.z - player.location.z);
+
+				if (
+					xDist <= activationDist &&
+					yDist <= activationDist &&
+					zDist <= activationDist
+				) {
+					isPlayerNear =
+						player.getDynamicProperty(
+							`${block.id}${(coordsString(block.location), false)}`
+						) <= 0
+							? true
+							: false;
+					break;
+				}
+			}
+
+			const newState = isPlayerNear
+				? { state: "active", sound: "vault.activate" }
+				: { state: "inactive", sound: "vault.deactivate" };
+			const particle =
+				block.permutation.getState("kado:vault_type") === "normal"
+					? "minecraft:basic_flame_particle"
+					: "minecraft:blue_flame_particle";
+			if (
+				block.permutation.getState("kado:vault_state") === "active" ||
+				block.permutation.getState("kado:vault_state") === "dispensing"
+			) {
+				dimension.spawnParticle(particle, particleLoc);
+			}
+			if (
+				block.permutation.getState("kado:vault_state") !== newState.state
+			) {
+				block.setPermutation(
+					block.permutation.withState("kado:vault_state", newState.state)
+				);
+				dimension.playSound(newState.sound, block.location);
+			}
+		},
 		onPlace(eventData) {
-			const block = eventData.block;
+			const { block, dimension } = eventData;
 			const permutation = block.permutation;
+
+			for (const player of world.getAllPlayers()) {
+				player.setDynamicProperty(
+					`${block.id}${(coordsString(block.location), false)}`,
+					0
+				);
+			}
 
 			// Default placement state
 			block.setPermutation(
@@ -1059,22 +1178,19 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 		},
 
 		onPlayerInteract(eventData) {
-			const { dimension, player, block, face, faceLocation } = eventData;
+			const { dimension, player, block } = eventData;
 			const inventory = player.getComponent("minecraft:inventory");
 			const mainHand = inventory.container?.getItem(
 				player.selectedSlotIndex
 			);
 
 			if (
-				player.getGameMode() !== "Creative" &&
-				player.getGameMode() !== "Survival"
+				player.getGameMode() === "Survival" &&
+				player.getDynamicProperty(
+					`${block.id}${(coordsString(block.location), false)}`
+				) > 0
 			)
 				return;
-
-			debugMsg(
-				`Gamemode: ${player.getGameMode()}\nItem: ${mainHand?.typeId}`,
-				3
-			);
 
 			const permutation = block.permutation;
 			const vaultType = block.permutation.getState("kado:vault_type");
@@ -1100,14 +1216,25 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 				);
 				return;
 			}
-			const keyType = mainHand?.typeId;
 			if (
-				(keyType === "minecraft:trial_key" && vaultType !== "normal") ||
-				(keyType === "minecraft:ominous_trial_key" &&
-					vaultType !== "ominous") ||
-				player.getGameMode() !== "Survival"
+				player.getDynamicProperty(
+					`${block.id}${(coordsString(block.location), false)}`
+				) > 0
 			)
 				return;
+
+			const keyType = mainHand?.typeId;
+			const validInterract =
+				(keyType === "minecraft:trial_key" && vaultType === "normal") ||
+				(keyType === "minecraft:ominous_trial_key" &&
+					vaultType === "ominous") ||
+				block.permutation.getState("kado:vault_state") === "active"
+					? true
+					: false;
+			if (!validInterract) {
+				dimension.playSound("vault.reject_rewarded_player", block.location);
+				return;
+			}
 
 			if (mainHand.amount > 1) {
 				inventory.container.setItem(
@@ -1118,30 +1245,91 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 				inventory.container.setItem(player.selectedSlotIndex, undefined);
 			}
 
-			let newState;
-
-			switch (block.permutation.getState("kado:vault_state")) {
-				case "active":
-					newState = "dispensing";
-					break;
-				case "dispensing":
-					newState = "inactive";
-					break;
-				case "inactive":
-					newState = "active";
-					break;
-			}
-
+			dimension.playSound("vault.insert_item", block.location);
+			const lootManager = world.getLootTableManager();
+			const lootTable =
+				vaultType === "normal"
+					? lootManager.getLootTable("chests/trial_chambers/reward")
+					: lootManager.getLootTable(
+							"chests/trial_chambers/reward_ominous"
+					  );
+			const lootRoll = lootManager.generateLootFromTable(lootTable);
 			block.setPermutation(
-				permutation.withState("kado:vault_state", newState)
+				permutation.withState("kado:vault_state", "dispensing")
 			);
-
-			debugMsg(
-				`Permutation set to ${block.permutation.getState(
-					"kado:vault_state"
-				)}`,
-				3
-			);
+			for (const loot of lootRoll) {
+				debugMsg(`Rolled: ${loot.amount} ${loot.typeId}s`, 3);
+			}
+			debugMsg(`Rolled a length of ${lootRoll.length}.`, 3);
+			dispenseVaultLoot(dimension, block, lootRoll);
+			system.runTimeout(() => {
+				player.setDynamicProperty(
+					`${block.id}${(coordsString(block.location), false)}`,
+					6000
+				);
+			}, lootRoll.length * 20 + 15);
 		},
 	});
 });
+
+function dispenseVaultLoot(dimension, block, lootRoll) {
+	dimension.playSound("vault.open_shutter", block.location);
+	system.runTimeout(() => {
+		let iter = 0;
+		const permutation = block.permutation;
+		const ejecting = system.runInterval(() => {
+			while (true) {
+				if (iter < lootRoll.length) {
+					dimension.spawnItem(
+						new ItemStack(lootRoll[iter].typeId, lootRoll[iter].amount),
+						{
+							x: block.location.x + 0.5,
+							y: block.location.y + 0.75,
+							z: block.location.z + 0.5,
+						}
+					);
+					dimension.playSound("vault.eject_item", block.location);
+					iter++;
+					break;
+				} else {
+					system.clearRun(ejecting);
+					block.setPermutation(
+						permutation.withState("kado:vault_state", "active")
+					);
+					dimension.playSound("vault.deactivate", block.location);
+					break;
+				}
+			}
+		}, 20);
+	}, 10);
+}
+
+/* VAULT SOUND DEFS
+
+vault.activate
+
+vault.ambient
+
+vault.break
+
+vault.close_shutter
+
+vault.deactivate
+
+vault.eject_item
+
+vault.hit
+
+vault.insert_item
+
+vault.insert_item_fail
+
+vault.open_shutter
+
+vault.place
+
+vault.reject_rewarded_player
+
+vault.step
+
+*/
