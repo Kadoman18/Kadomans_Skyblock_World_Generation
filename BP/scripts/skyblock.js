@@ -1,10 +1,4 @@
-import {
-	BlockVolume,
-	ItemStack,
-	LootTableManager,
-	system,
-	world,
-} from "@minecraft/server";
+import { BlockVolume, ItemStack, system, world } from "@minecraft/server";
 
 // --------------------------------------------------
 // Coordinate System Reference (Bedrock)
@@ -25,18 +19,7 @@ import {
 // Global Debug Toggle
 // --------------------------------------------------
 // Enables verbose console output through debugMsg()
-const globalDebugLevel = 3;
-const waitForChunksDebug = 1;
-const tickingAreasDebug = 1;
-const applyPermsDebug = 1;
-const fillChestDebug = 1;
-const genIslandDebug = 1;
-const buildIslandDebug = 1;
-const overworldGenDebug = 1;
-const netherGenDebug = 1;
-const reBudAmDebug = 1;
-const breakBlockDebug = 1;
-const reDeSlateDebug = 1;
+const debugging = false;
 
 // Island schema overview:
 //
@@ -257,7 +240,7 @@ const netherIslands = [netherIsland];
  * Logs a debug message if the messages value is less than or equal to the debugLevel global value.
  *
  * @param {string} message - Message to log.
- * @param {number} level - Severity of message.
+ * @param {boolean} error - Displays a console warning, true if error, else false.
  *
  * Note:
  * Level 3 - least important,
@@ -265,12 +248,12 @@ const netherIslands = [netherIsland];
  * Level 1 - good to know,
  * Level 0 - warnings only
  */
-function debugMsg(message, level) {
-	if (level === 0) {
+function debugMsg(message, error) {
+	if (error) {
 		console.warn(message);
 		return;
 	}
-	if (globalDebugLevel >= level) console.log(message);
+	if (debugging) console.log(message);
 }
 
 /**
@@ -314,11 +297,392 @@ function ticksToTime(ticks) {
 	return { hours, minutes, seconds };
 }
 
+// --------------------------------------------------
+// Wait for Chunk Loaded
+// --------------------------------------------------
+
+/**
+ * Waits until a chunk is loaded before calling a callback.
+ *
+ * @param {Dimension} dimension - Target dimension.
+ * @param {Vector3} location - Position to check.
+ * @param {Function} onReady - Callback once loaded.
+ * @param {number} retries - Max attempts.
+ * @param {number} interval - Ticks between checks.
+ */
+function waitForChunkLoaded(
+	dimension,
+	location,
+	onReady,
+	retries = 50,
+	interval = 20
+) {
+	let attempts = 0;
+
+	const handle = system.runInterval(() => {
+		if (dimension.isChunkLoaded(location)) {
+			system.clearRun(handle);
+			debugMsg(`Chunk loaded at ${coordsString(location, true)}`, false);
+			onReady();
+			return;
+		}
+
+		attempts++;
+		debugMsg(
+			`Waiting for chunk load (${attempts}/${retries}) at ${coordsString(
+				location,
+				true
+			)}`,
+			false
+		);
+
+		if (attempts >= retries) {
+			system.clearRun(handle);
+			debugMsg(
+				`Chunk load at ${coordsString(
+					location,
+					true
+				)} Failed after ${retries} attempts.`,
+				true
+			);
+		}
+	}, interval);
+}
+
+// --------------------------------------------------
+// Island Build Functions
+// --------------------------------------------------
+
+/**
+ * Resolves the dimension object for an island.
+ *
+ * @param {object} island - Island object with targetDimension.
+ * @returns {boolean} True if successful, false if failed.
+ */
+function prepareIsland(island) {
+	try {
+		island.dimension = world.getDimension(island.targetDimension);
+		return true;
+	} catch (e) {
+		debugMsg(`Failed to resolve dimension for island: ${island.name}`, true);
+		return false;
+	}
+}
+
+/**
+ * Creates a temporary ticking area around the island.
+ *
+ * @param {Dimension} dimension - Target dimension.
+ * @param {Vector3} location - Center of ticking area.
+ * @param {string} name - Ticking area name.
+ */
+function createTickingArea(dimension, location, name) {
+	dimension.runCommand(
+		`tickingarea add circle ${coordsString(location, false)} 2 ${name}`
+	);
+	debugMsg(
+		`Ticking area "${name}" created at ${coordsString(location, true)}`,
+		false
+	);
+}
+
+/**
+ * Removes a ticking area by name.
+ *
+ * @param {Dimension} dimension - Target dimension.
+ * @param {string} name - Ticking area name.
+ */
+function removeTickingArea(dimension, name) {
+	dimension.runCommand(`tickingarea remove ${name}`);
+	debugMsg(`Ticking area "${name}" removed`, false);
+}
+
+/**
+ * Applies block permutations efficiently.
+ *
+ * @param {object} iteration - Block definition with perms.
+ * @param {Vector3} from - Volume start.
+ * @param {Vector3} to - Volume end.
+ * @param {Dimension} dimension - Target dimension.
+ */
+function applyBlockPermutations(iteration, from, to, dimension) {
+	const permId = iteration.perms.perm;
+	const permValue = iteration.perms.value;
+
+	// Single-block optimization avoids unnecessary triple loops and prevents edge cases with unloaded neighbors
+	const singleBlock =
+		from.x === to.x && from.y === to.y && from.z === to.z ? from : null;
+
+	if (singleBlock) {
+		const block = dimension.getBlock(singleBlock);
+		if (!block) return;
+
+		block.setPermutation(block.permutation.withState(permId, permValue));
+		debugMsg(
+			`Set permutation ${permId}=${permValue} at ${coordsString(
+				from,
+				true
+			)}`,
+			false
+		);
+		return;
+	}
+
+	for (let x = from.x; x <= to.x; x++) {
+		for (let y = from.y; y <= to.y; y++) {
+			for (let z = from.z; z <= to.z; z++) {
+				const block = dimension.getBlock({ x, y, z });
+				if (!block) continue;
+				block.setPermutation(
+					block.permutation.withState(permId, permValue)
+				);
+			}
+		}
+	}
+	debugMsg(
+		`Set permutation ${permId}=${permValue} for volume ${coordsString(
+			from,
+			true
+		)} -> ${coordsString(to, true)}`,
+		false
+	);
+}
+
+/**
+ * Builds all blocks of an island.
+ *
+ * @param {object} island - Island object.
+ * @param {Vector3} originPoint - World origin reference.
+ */
+function buildIslandBlocks(island, originPoint) {
+	const dimension = island.dimension;
+	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
+
+	debugMsg(
+		`${island.name} origin resolved at ${coordsString(
+			islandOrigin,
+			true
+		)}\nBuilding Island Now...`,
+		false
+	);
+
+	for (const key in island.blocks) {
+		const iteration = island.blocks[key];
+
+		const from = calculateOffsets(islandOrigin, iteration.offset.from);
+		const to = calculateOffsets(islandOrigin, iteration.offset.to);
+
+		debugMsg(
+			`Building "${key}" from ${coordsString(from, true)} to ${coordsString(
+				to,
+				true
+			)}`,
+			false
+		);
+
+		const volume = new BlockVolume(from, to);
+		dimension.fillBlocks(volume, iteration.block);
+
+		if (iteration.perms)
+			applyBlockPermutations(iteration, from, to, dimension);
+	}
+}
+
+/**
+ * Locates a chest on an island and fills it with loot.
+ *
+ * @param {object} island - Island object with loot.
+ * @param {Vector3} originPoint - World origin reference.
+ */
+function fillChest(island, originPoint) {
+	const dimension = island.dimension;
+	const chestLoc = calculateOffsets(
+		calculateOffsets(originPoint, island.origin_offset),
+		island.loot.chestLoc
+	);
+	const chestBlock = dimension.getBlock(chestLoc);
+
+	if (chestBlock?.typeId === "minecraft:chest") {
+		const chestEntity = chestBlock.getComponent("minecraft:inventory");
+		if (!chestEntity) return;
+
+		const lootTable = island.loot.items;
+
+		system.run(() => {
+			for (let loot in lootTable) {
+				const iteration = lootTable[loot];
+				chestEntity.container.setItem(
+					iteration.slot,
+					new ItemStack(iteration.item, iteration.amount)
+				);
+			}
+		});
+
+		debugMsg(
+			`${island.name}
+			Loot Chest found and filled at location: ${coordsString(chestLoc, true)}`,
+			false
+		);
+	} else {
+		debugMsg(
+			`${island.name} Loot Chest not found at location: ${coordsString(
+				chestLoc,
+				true
+			)}`,
+			true
+		);
+	}
+}
+
+/**
+ * Fills chest with loot if defined.
+ *
+ * @param {object} island - Island object with loot.
+ * @param {Vector3} originPoint - World origin reference.
+ */
+function finalizeIslandLoot(island, originPoint) {
+	if (!island.loot) return;
+	fillChest(island, originPoint);
+}
+
+/**
+ * Suspends a player in the air for island generation.
+ *
+ * @param {Player} player - Player to suspend.
+ * @param {Vector3} location - Location to teleport repeatedly.
+ * @param {number} ticks - Duration in ticks.
+ */
+function suspendPlayer(player, location, ticks = 40) {
+	const suspend = system.runInterval(() => {
+		player.tryTeleport(location);
+		debugMsg(`${player.name} Suspended.`, false);
+	}, 5);
+
+	system.runTimeout(() => {
+		system.clearRun(suspend);
+	}, ticks);
+}
+
+/**
+ * Generates an island including ticking area, blocks, and loot.
+ *
+ * @param {object} island - Island object.
+ * @param {Vector3} originPoint - World origin reference.
+ */
+function generateIsland(island, originPoint) {
+	if (!prepareIsland(island)) return;
+
+	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
+	const tickName = `${island.name.replace(/\s+/g, "_").toLowerCase()}`;
+
+	createTickingArea(island.dimension, islandOrigin, tickName);
+
+	waitForChunkLoaded(island.dimension, islandOrigin, () => {
+		buildIslandBlocks(island, originPoint);
+		finalizeIslandLoot(island, originPoint);
+		debugMsg(`${island.name} generation complete.`, false);
+
+		system.runTimeout(() => {
+			removeTickingArea(island.dimension, tickName);
+		}, 20);
+	});
+}
+
+// --------------------------------------------------
+// After Player Spawn Hook for World Initialization
+// --------------------------------------------------
+world.afterEvents.playerSpawn.subscribe((eventData) => {
+	const { player } = eventData;
+
+	if (world.getDynamicProperty("kado:overworld_unlocked")) {
+		debugMsg(`This world's overworld has already been initialized`, false);
+		return;
+	}
+
+	const spawn = {
+		x: world.getDefaultSpawnLocation().x,
+		y: 65,
+		z: world.getDefaultSpawnLocation().z,
+	};
+	debugMsg(
+		`Spawn Found: ${coordsString(spawn, true)}\n${
+			player.name
+		} awaiting island generation.`,
+		false
+	);
+	suspendPlayer(player, { x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 });
+
+	// Thanks Lyvvy <3
+	for (const island of overworldIslands) generateIsland(island, spawn);
+
+	world.setDynamicProperty("kado:overworld_unlocked", true);
+	debugMsg(
+		`Dynamic Property: "kado:overworld_unlocked" - ${world.getDynamicProperty(
+			"kado:overworld_unlocked"
+		)}`,
+		false
+	);
+});
+
+// --------------------------------------------------
+// After Dimension Change Hook for Nether Initialization
+// --------------------------------------------------
+world.afterEvents.playerDimensionChange.subscribe((eventData) => {
+	const { player, toDimension, toLocation } = eventData;
+
+	if (toDimension.id === "minecraft:overworld") {
+		debugMsg(`This world's overworld has already been initialized`, false);
+		return;
+	} else if (
+		toDimension.id === "minecraft:nether" &&
+		world.getDynamicProperty("kado:nether_unlocked")
+	) {
+		debugMsg(`This world's nether has already been initialized`, false);
+		return;
+	} else if (toDimension.id === "minecraft:the_end") return;
+
+	debugMsg(`toLocation: ${coordsString(toLocation, true)}`, false);
+	debugMsg(`player.location: ${coordsString(player.location, true)}`, false);
+
+	const origin = {
+		x: toLocation.x,
+		y: toLocation.y + 5,
+		z: toLocation.z,
+	};
+
+	suspendPlayer(
+		player,
+		{
+			x: origin.x + 0.5,
+			y: origin.y,
+			z: origin.z + 0.99,
+		},
+		10
+	);
+
+	debugMsg(
+		`Origin Found: ${coordsString(origin, true)}\n${
+			player.name
+		} awaiting island generation.`,
+		false
+	);
+
+	for (const island of netherIslands) generateIsland(island, origin);
+
+	world.setDynamicProperty("kado:nether_unlocked", true);
+	debugMsg(
+		`Dynamic Property: "kado:nether_unlocked" - ${world.getDynamicProperty(
+			"kado:nether_unlocked"
+		)}`,
+		false
+	);
+});
+
 /**
  * Checks for a valid block formation to form budding amethyst.
  *
  * @param {Dimension} dimension - The dimension of the formation.
- * @param {Block} blockLoc - Center block location (surrounded block which should be water).
+ * @param {Vector3} blockLoc - Center block location (surrounded block which should be water).
  * @returns {boolean} True if surrounded on all sides, both layers.
  */
 function validGeode(dimension, blockLoc) {
@@ -355,412 +719,7 @@ function validGeode(dimension, blockLoc) {
 }
 
 // --------------------------------------------------
-// Wait for Chunk Loaded
-// --------------------------------------------------
-
-/**
- * Waits until a chunk is loaded before calling a callback.
- *
- * @param {Dimension} dimension - Target dimension.
- * @param {Vector3} location - Position to check.
- * @param {Function} onReady - Callback once loaded.
- * @param {number} retries - Max attempts.
- * @param {number} interval - Ticks between checks.
- */
-function waitForChunkLoaded(
-	dimension,
-	location,
-	onReady,
-	retries = 50,
-	interval = 20
-) {
-	let attempts = 0;
-
-	const handle = system.runInterval(() => {
-		if (dimension.isChunkLoaded(location)) {
-			system.clearRun(handle);
-			debugMsg(
-				`Chunk loaded at ${coordsString(location, true)}`,
-				waitForChunksDebug
-			);
-			onReady();
-			return;
-		}
-
-		attempts++;
-		debugMsg(
-			`Waiting for chunk load (${attempts}/${retries}) at ${coordsString(
-				location,
-				true
-			)}`,
-			waitForChunksDebug
-		);
-
-		if (attempts >= retries) {
-			system.clearRun(handle);
-			debugMsg(
-				`Chunk load at ${coordsString(
-					location,
-					true
-				)} Failed after ${retries} attempts.`,
-				0
-			);
-		}
-	}, interval);
-}
-
-// --------------------------------------------------
-// Island Build Functions
-// --------------------------------------------------
-
-/**
- * Resolves the dimension object for an island.
- *
- * @param {object} island - Island object with targetDimension.
- * @returns {boolean} True if successful, false if failed.
- */
-function prepareIsland(island) {
-	try {
-		island.dimension = world.getDimension(island.targetDimension);
-		return true;
-	} catch (e) {
-		debugMsg(`Failed to resolve dimension for island: ${island.name}`, 0);
-		return false;
-	}
-}
-
-/**
- * Creates a temporary ticking area around the island.
- *
- * @param {Dimension} dimension - Target dimension.
- * @param {Vector3} location - Center of ticking area.
- * @param {string} name - Ticking area name.
- */
-function createTickingArea(dimension, location, name) {
-	dimension.runCommand(
-		`tickingarea add circle ${coordsString(location, false)} 2 ${name}`
-	);
-	debugMsg(
-		`Ticking area "${name}" created at ${coordsString(location, true)}`,
-		tickingAreasDebug
-	);
-}
-
-/**
- * Removes a ticking area by name.
- *
- * @param {Dimension} dimension - Target dimension.
- * @param {string} name - Ticking area name.
- */
-function removeTickingArea(dimension, name) {
-	dimension.runCommand(`tickingarea remove ${name}`);
-	debugMsg(`Ticking area "${name}" removed`, tickingAreasDebug);
-}
-
-/**
- * Applies block permutations efficiently.
- *
- * @param {object} iteration - Block definition with perms.
- * @param {Vector3} from - Volume start.
- * @param {Vector3} to - Volume end.
- * @param {Dimension} dimension - Target dimension.
- */
-function applyBlockPermutations(iteration, from, to, dimension) {
-	const permId = iteration.perms.perm;
-	const permValue = iteration.perms.value;
-
-	const singleBlock =
-		from.x === to.x && from.y === to.y && from.z === to.z ? from : null;
-
-	if (singleBlock) {
-		const block = dimension.getBlock(singleBlock);
-		if (!block) return;
-
-		block.setPermutation(block.permutation.withState(permId, permValue));
-		debugMsg(
-			`Set permutation ${permId}=${permValue} at ${coordsString(
-				from,
-				true
-			)}`,
-			applyPermsDebug
-		);
-		return;
-	}
-
-	for (let x = from.x; x <= to.x; x++) {
-		for (let y = from.y; y <= to.y; y++) {
-			for (let z = from.z; z <= to.z; z++) {
-				const block = dimension.getBlock({ x, y, z });
-				if (!block) continue;
-				block.setPermutation(
-					block.permutation.withState(permId, permValue)
-				);
-			}
-		}
-	}
-	debugMsg(
-		`Set permutation ${permId}=${permValue} for volume ${coordsString(
-			from,
-			true
-		)} -> ${coordsString(to, true)}`,
-		applyPermsDebug
-	);
-}
-
-/**
- * Builds all blocks of an island.
- *
- * @param {object} island - Island object.
- * @param {Vector3} originPoint - World origin reference.
- */
-function buildIslandBlocks(island, originPoint) {
-	const dimension = island.dimension;
-	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
-
-	debugMsg(
-		`${island.name} origin resolved at ${coordsString(
-			islandOrigin,
-			true
-		)}\nBuilding Island Now...`,
-		buildIslandDebug
-	);
-
-	for (const key in island.blocks) {
-		const iteration = island.blocks[key];
-
-		const from = calculateOffsets(islandOrigin, iteration.offset.from);
-		const to = calculateOffsets(islandOrigin, iteration.offset.to);
-
-		debugMsg(
-			`Building "${key}" from ${coordsString(from, true)} to ${coordsString(
-				to,
-				true
-			)}`,
-			buildIslandDebug
-		);
-
-		const volume = new BlockVolume(from, to);
-		dimension.fillBlocks(volume, iteration.block);
-
-		if (iteration.perms)
-			applyBlockPermutations(iteration, from, to, dimension);
-	}
-}
-
-/**
- * Locates a chest on an island and fills it with loot.
- *
- * @param {object} island - Island object with loot.
- * @param {Vector3} originPoint - World origin reference.
- */
-function fillChest(island, originPoint) {
-	const dimension = island.dimension;
-	const chestBlock = dimension.getBlock(
-		calculateOffsets(
-			calculateOffsets(originPoint, island.origin_offset),
-			island.loot.chestLoc
-		)
-	);
-
-	if (chestBlock?.typeId === "minecraft:chest") {
-		const chestEntity = chestBlock.getComponent("minecraft:inventory");
-		if (!chestEntity) return;
-
-		const lootTable = island.loot.items;
-
-		system.run(() => {
-			for (let loot in lootTable) {
-				const iteration = lootTable[loot];
-				chestEntity.container.setItem(
-					iteration.slot,
-					new ItemStack(iteration.item, iteration.amount)
-				);
-			}
-		});
-
-		debugMsg(
-			`${island.name}
-			Loot Chest found and filled at location: ${coordsString(
-				calculateOffsets(
-					calculateOffsets(originPoint, island.origin_offset),
-					island.loot.chestLoc
-				),
-				true
-			)}`,
-			fillChestDebug
-		);
-	} else {
-		debugMsg(
-			`${island.name} Loot Chest not found at location: ${coordsString(
-				calculateOffsets(
-					calculateOffsets(originPoint, island.origin_offset),
-					island.loot.chestLoc
-				),
-				true
-			)}`,
-			0
-		);
-	}
-}
-
-/**
- * Fills chest with loot if defined.
- *
- * @param {object} island - Island object with loot.
- * @param {Vector3} originPoint - World origin reference.
- */
-function finalizeIslandLoot(island, originPoint) {
-	if (!island.loot) return;
-	fillChest(island, originPoint);
-}
-
-/**
- * Suspends a player in the air for island generation.
- *
- * @param {Player} player - Player to suspend.
- * @param {Vector3} location - Location to teleport repeatedly.
- * @param {number} ticks - Duration in ticks.
- */
-function suspendPlayer(player, location, ticks = 40) {
-	const suspend = system.runInterval(() => {
-		player.tryTeleport(location);
-		debugMsg(`${player.name} Suspended.`, 3);
-	}, 5);
-
-	system.runTimeout(() => {
-		system.clearRun(suspend);
-	}, ticks);
-}
-
-/**
- * Generates an island including ticking area, blocks, and loot.
- *
- * @param {object} island - Island object.
- * @param {Vector3} originPoint - World origin reference.
- */
-function generateIsland(island, originPoint) {
-	if (!prepareIsland(island)) return;
-
-	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
-	const tickName = `${island.name.replace(/\s+/g, "_").toLowerCase()}`;
-
-	createTickingArea(island.dimension, islandOrigin, tickName);
-
-	waitForChunkLoaded(island.dimension, islandOrigin, () => {
-		buildIslandBlocks(island, originPoint);
-		finalizeIslandLoot(island, originPoint);
-		debugMsg(`${island.name} generation complete.`, genIslandDebug);
-
-		system.runTimeout(() => {
-			removeTickingArea(island.dimension, tickName);
-		}, 20);
-	});
-}
-
-// --------------------------------------------------
-// World Initialization Hook
-// --------------------------------------------------
-world.afterEvents.playerSpawn.subscribe((eventData) => {
-	const { player } = eventData;
-
-	if (world.getDynamicProperty("kado:overworld_unlocked")) {
-		debugMsg(
-			`This world's overworld has already been initialized`,
-			overworldGenDebug
-		);
-		return;
-	}
-
-	const spawn = {
-		x: world.getDefaultSpawnLocation().x,
-		y: 65,
-		z: world.getDefaultSpawnLocation().z,
-	};
-	debugMsg(
-		`Spawn Found: ${coordsString(spawn, true)}\n${
-			player.name
-		} awaiting island generation.`,
-		overworldGenDebug
-	);
-	suspendPlayer(player, { x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 });
-
-	// Thanks Lyvvy <3
-	for (const island of overworldIslands) generateIsland(island, spawn);
-
-	world.setDynamicProperty("kado:overworld_unlocked", true);
-	debugMsg(
-		`Dynamic Property: "kado:overworld_unlocked" - ${world.getDynamicProperty(
-			"kado:overworld_unlocked"
-		)}`,
-		overworldGenDebug
-	);
-});
-
-// --------------------------------------------------
-// Nether Initialization Hook
-// --------------------------------------------------
-world.afterEvents.playerDimensionChange.subscribe((eventData) => {
-	const { player, toDimension, toLocation } = eventData;
-
-	if (toDimension.id === "minecraft:overworld") {
-		debugMsg(
-			`This world's overworld has already been initialized`,
-			netherGenDebug
-		);
-		return;
-	} else if (
-		toDimension.id === "minecraft:nether" &&
-		world.getDynamicProperty("kado:nether_unlocked")
-	) {
-		debugMsg(
-			`This world's nether has already been initialized`,
-			netherGenDebug
-		);
-		return;
-	} else if (toDimension.id === "minecraft:the_end") return;
-
-	debugMsg(`toLocation: ${coordsString(toLocation, true)}`, netherGenDebug);
-	debugMsg(
-		`player.location: ${coordsString(player.location, true)}`,
-		netherGenDebug
-	);
-
-	const origin = {
-		x: toLocation.x,
-		y: toLocation.y + 5,
-		z: toLocation.z,
-	};
-
-	suspendPlayer(
-		player,
-		{
-			x: origin.x + 0.5,
-			y: origin.y,
-			z: origin.z + 0.99,
-		},
-		10
-	);
-
-	debugMsg(
-		`Origin Found: ${coordsString(origin, true)}\n${
-			player.name
-		} awaiting island generation.`,
-		netherGenDebug
-	);
-
-	for (const island of netherIslands) generateIsland(island, origin);
-
-	world.setDynamicProperty("kado:nether_unlocked", true);
-	debugMsg(
-		`Dynamic Property: "kado:nether_unlocked" - ${world.getDynamicProperty(
-			"kado:nether_unlocked"
-		)}`,
-		3
-	);
-});
-
-// --------------------------------------------------
-// Item Stop Use Hook for Renewable Budding Amethyst
+// After Item Stop Use Hook for Renewable Budding Amethyst
 // --------------------------------------------------
 world.afterEvents.itemStopUseOn.subscribe((eventData) => {
 	const { source: player, itemStack } = eventData;
@@ -775,14 +734,14 @@ world.afterEvents.itemStopUseOn.subscribe((eventData) => {
 	const { hours, minutes, seconds } = ticksToTime(delay);
 	debugMsg(
 		`Delay: ${delay} ticks\nHours: ${hours}\nMinutes: ${minutes}\nSeconds: ${seconds}`,
-		reBudAmDebug
+		false
 	);
 	system.runTimeout(() => {
 		const preSurrounded = validGeode(
 			player.dimension,
 			placedWaterBlock.location
 		);
-		debugMsg(`Surrounded: ${preSurrounded}`, reBudAmDebug);
+		debugMsg(`Surrounded: ${preSurrounded}`, false);
 	}, 150);
 	system.runTimeout(() => {
 		const surrounded = validGeode(
@@ -799,7 +758,7 @@ world.afterEvents.itemStopUseOn.subscribe((eventData) => {
 					placedWaterBlock,
 					true
 				)} was surrounded and converted to budding amethyst.`,
-				reBudAmDebug
+				false
 			);
 			createTickingArea(
 				player.dimension,
@@ -816,7 +775,7 @@ world.afterEvents.itemStopUseOn.subscribe((eventData) => {
 						placedWaterBlock.location,
 						true
 					)}\n was surrounded and converted.`,
-					reBudAmDebug
+					false
 				);
 				system.runTimeout(() => {
 					removeTickingArea(player.dimension, "amethyst");
@@ -828,7 +787,7 @@ world.afterEvents.itemStopUseOn.subscribe((eventData) => {
 					placedWaterBlock,
 					true
 				)} was not surrounded.`,
-				reBudAmDebug
+				false
 			);
 		}
 	}, delay);
@@ -836,7 +795,8 @@ world.afterEvents.itemStopUseOn.subscribe((eventData) => {
 
 // --------------------------------------------------
 // Before Player Break Block Hook for:
-// Silk Touch Budding Amethyst & Renewable Spore Blossoms
+// Silk Touch Budding Amethyst
+// Renewable Spore Blossoms
 // --------------------------------------------------
 world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 	const { player, block, itemStack } = eventData;
@@ -869,11 +829,11 @@ world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 	if (block.typeId === "minecraft:azalea_leaves_flowered" && !hasSilkTouch) {
 		const dropChance = 0.01 * (1 + fortuneLevel);
 		const dropRoll = Math.random();
-		debugMsg(`Chance: ${dropChance}\nRoll: ${dropRoll}`, breakBlockDebug);
+		debugMsg(`Chance: ${dropChance}\nRoll: ${dropRoll}`, false);
 
 		if (dropRoll < dropChance) {
 			doSpawn = "minecraft:spore_blossom";
-			debugMsg(`Spore Blossom Dropped`, breakBlockDebug);
+			debugMsg(`Spore Blossom Dropped`, false);
 		}
 	}
 
@@ -894,7 +854,7 @@ world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 
 		if (isValidPickaxe) {
 			doSpawn = "minecraft:budding_amethyst";
-			debugMsg(`Budding Amethyst Dropped`, breakBlockDebug);
+			debugMsg(`Budding Amethyst Dropped`, false);
 		}
 	}
 
@@ -912,7 +872,7 @@ world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 });
 
 // --------------------------------------------------
-// Item Use Hook for Renewable Deepslate
+// After Item Use Hook for Renewable Deepslate
 // --------------------------------------------------
 world.afterEvents.itemUse.subscribe((eventData) => {
 	const { source, itemStack } = eventData;
@@ -926,11 +886,11 @@ world.afterEvents.itemUse.subscribe((eventData) => {
 
 	source.addTag("kado:threwThickPotion");
 
-	debugMsg(`${source.name} threw a Thick Splash Potion`, reDeSlateDebug);
+	debugMsg(`${source.name} threw a Thick Splash Potion`, false);
 });
 
 // --------------------------------------------------
-// Entity Spawn Hook for Renewable Deepslate
+// After Entity Spawn Hook for Renewable Deepslate
 // --------------------------------------------------
 world.afterEvents.entitySpawn.subscribe((eventData) => {
 	const entity = eventData.entity;
@@ -947,12 +907,12 @@ world.afterEvents.entitySpawn.subscribe((eventData) => {
 
 	entity.addTag("kado:isThickPotion");
 
-	debugMsg(
-		`Marked splash potion ${entity.id} as Thick Potion`,
-		reDeSlateDebug
-	);
+	debugMsg(`Marked splash potion ${entity.id} as Thick Potion`, false);
 });
 
+// --------------------------------------------------
+// After Projectile Hit Block Hook for Renewable Deepslate
+// --------------------------------------------------
 world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 	const { dimension, hitVector, location, projectile, source } = eventData;
 
@@ -966,6 +926,9 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 
 	let face;
 
+	// Determine impact face from hitVector dominance.
+	// This allows accurate placement offset even when
+	// Bedrock returns ambiguous projectile collision data.
 	const absX = Math.abs(hitVector.x);
 	const absY = Math.abs(hitVector.y);
 	const absZ = Math.abs(hitVector.z);
@@ -980,7 +943,7 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 
 	debugMsg(
 		`Potion hit face: "${face}" at ${coordsString(location, true)}`,
-		reDeSlateDebug
+		false
 	);
 
 	let effectCenter;
@@ -1022,7 +985,7 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 
 	debugMsg(
 		`Effect location calculated to ${coordsString(effectCenter, true)}.`,
-		reDeSlateDebug
+		false
 	);
 
 	const radius = 1.4;
@@ -1047,64 +1010,125 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 	dimension.fillBlocks(blockHits, "minecraft:deepslate");
 });
 
-// Core RNG Helpers
-function randomInt(min, max) {
-	return Math.floor(Math.random() * (max - min + 1)) + min;
+/**
+ * Returns a random integer between min and max (inclusive).
+ *
+ * @param {number} min - Minimum value.
+ * @param {number} max - Maximum value.
+ * @param {boolean} floor - Floor the random value.
+ * @returns {number} Random integer in range.
+ */
+function randomNum(min, max) {
+	return Math.random() * (max - min) + min;
 }
 
+/**
+ * Rolls a probability check.
+ *
+ * @param {number} chance - Value between 0.0 and 1.0.
+ * @returns {boolean} True if roll succeeds.
+ */
 function rollChance(chance) {
 	return Math.random() < chance;
 }
 
-function resolveRolls(rolls) {
-	if (typeof rolls === "number") return rolls;
-	return randomInt(rolls.min, rolls.max);
-}
+/**
+ * Sequentially ejects generated vault loot items.
+ *
+ * Behavior:
+ * - Opens vault shutter
+ * - Ejects one item per second
+ * - Returns vault to ACTIVE state after completion
+ *
+ * @param {Dimension} dimension
+ * @param {Block} block
+ * @param {Array<{typeId:string,amount:number}>} lootRoll
+ */
+function dispenseVaultLoot(dimension, block, lootRoll) {
+	dimension.playSound("vault.open_shutter", block.location);
 
-// Weighted Entry Section
-function pickWeighted(entries) {
-	let totalWeight = 0;
+	system.runTimeout(() => {
+		let iter = 0;
+		const permutation = block.permutation;
 
-	for (const e of entries) totalWeight += e.weight ?? 1;
+		const ejecting = system.runInterval(() => {
+			if (iter < lootRoll.length) {
+				const itemEntity = dimension.spawnItem(
+					new ItemStack(lootRoll[iter].typeId, lootRoll[iter].amount),
+					{
+						x: block.location.x + 0.5,
+						y: block.location.y + 1,
+						z: block.location.z + 0.5,
+					}
+				);
+				const vel = itemEntity.getVelocity();
 
-	let roll = Math.random() * totalWeight;
+				itemEntity.clearVelocity();
 
-	for (const e of entries) {
-		roll -= e.weight ?? 1;
-		if (roll <= 0) return e;
-	}
+				// Apply controlled vault ejection
+				itemEntity.applyImpulse({
+					x: randomNum(-0.033, 0.033),
+					y: 0.25,
+					z: randomNum(-0.033, 0.033),
+				});
 
-	return entries[entries.length - 1];
+				dimension.playSound("vault.eject_item", block.location);
+				iter++;
+				return;
+			}
+
+			system.clearRun(ejecting);
+			block.setPermutation(
+				permutation.withState("kado:vault_state", "active")
+			);
+			dimension.playSound("vault.deactivate", block.location);
+		}, 20);
+	}, 10);
 }
 
 // --------------------------------------------------
-// Reusable Custom Vaults
+// Before Startup Hook Component Registry for Reusable Custom Vaults
 // --------------------------------------------------
 system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 	blockComponentRegistry.registerCustomComponent("kado:trial_vault", {
 		onTick(eventData) {
 			const { block, dimension } = eventData;
-			const activationDist = 3.75;
-			const particleLoc = {
-				x: block.location.x + Math.random() * 0.8 + 0.1,
-				y: block.location.y + Math.random() * 0.8 + 0.1,
-				z: block.location.z + Math.random() * 0.8 + 0.1,
+			const activationDist = 3.5;
+
+			const vaultId = `kado:vault-${block.permutation.getState(
+				"kado:vault_type"
+			)}-(${coordsString(block.location, true)})`;
+
+			const blockCenter = {
+				x: block.location.x + 0.5,
+				y: block.location.y + 0.5,
+				z: block.location.z + 0.5,
 			};
+
+			const particleLoc = {
+				x: block.location.x + randomNum(0.1, 0.9),
+				y: block.location.y + randomNum(0.1, 0.9),
+				z: block.location.z + randomNum(0.1, 0.9),
+			};
+
 			dimension.spawnParticle("minecraft:basic_smoke_particle", particleLoc);
-			for (const player of world.getAllPlayers()) {
-				let cooldown = player?.getDynamicProperty(
-					`${block.id}${(coordsString(block.location), false)}`
-				);
-				if (!cooldown)
-					player.setDynamicProperty(
-						`${block.id}${(coordsString(block.location), false)}`,
-						0
-					);
+
+			const players = world.getAllPlayers();
+			for (const player of players) {
+				const cooldown = player?.getDynamicProperty(vaultId);
+				if (!cooldown) player.setDynamicProperty(vaultId, 0);
 				if (cooldown > 0) {
-					player.setDynamicProperty(
-						`${block.id}${(coordsString(block.location), false)}`,
-						cooldown - 10
-					);
+					const nextCooldown = Math.max(cooldown - 10, 0);
+					player.setDynamicProperty(vaultId, nextCooldown);
+
+					if (nextCooldown % 600 === 0) {
+						const time = ticksToTime(nextCooldown);
+						debugMsg(
+							`[${vaultId}] Cooldown: ${time.minutes}m ${time.seconds}s`,
+							false
+						);
+					}
+
 					block.setPermutation(
 						block.permutation.withState("kado:vault_state", "inactive")
 					);
@@ -1112,43 +1136,45 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 				}
 			}
 
-			let isPlayerNear = false;
+			let hasEligiblePlayerNearby = false;
 
 			if (block.permutation.getState("kado:vault_state") === "dispensing")
 				return;
-			for (const player of dimension.getPlayers()) {
-				const xDist = Math.abs(block.location.x - player.location.x);
-				const yDist = Math.abs(block.location.y - player.location.y);
-				const zDist = Math.abs(block.location.z - player.location.z);
 
-				if (
-					xDist <= activationDist &&
-					yDist <= activationDist &&
-					zDist <= activationDist
-				) {
-					isPlayerNear =
-						player.getDynamicProperty(
-							`${block.id}${(coordsString(block.location), false)}`
-						) <= 0
-							? true
-							: false;
+			for (const player of dimension.getPlayers()) {
+				const xDist = player.location.x - blockCenter.x;
+				const yDist = player.location.y - blockCenter.y;
+				const zDist = player.location.z - blockCenter.z;
+
+				const inRange =
+					xDist ** 2 + yDist ** 2 + zDist ** 2 <= activationDist ** 2;
+
+				if (!inRange) continue;
+
+				const cooldown = player.getDynamicProperty(vaultId) ?? 0;
+
+				if (cooldown === 0) {
+					hasEligiblePlayerNearby = true;
 					break;
 				}
 			}
 
-			const newState = isPlayerNear
+			const newState = hasEligiblePlayerNearby
 				? { state: "active", sound: "vault.activate" }
 				: { state: "inactive", sound: "vault.deactivate" };
+
 			const particle =
 				block.permutation.getState("kado:vault_type") === "normal"
 					? "minecraft:basic_flame_particle"
 					: "minecraft:blue_flame_particle";
+
 			if (
 				block.permutation.getState("kado:vault_state") === "active" ||
 				block.permutation.getState("kado:vault_state") === "dispensing"
 			) {
 				dimension.spawnParticle(particle, particleLoc);
 			}
+
 			if (
 				block.permutation.getState("kado:vault_state") !== newState.state
 			) {
@@ -1158,18 +1184,18 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 				dimension.playSound(newState.sound, block.location);
 			}
 		},
+
 		onPlace(eventData) {
 			const { block, dimension } = eventData;
 			const permutation = block.permutation;
-
-			for (const player of world.getAllPlayers()) {
-				player.setDynamicProperty(
-					`${block.id}${(coordsString(block.location), false)}`,
-					0
-				);
+			const vaultId = `kado:vault-${block.permutation.getState(
+				"kado:vault_type"
+			)}-(${coordsString(block.location, true)})`;
+			const players = world.getAllPlayers();
+			for (const player of players) {
+				player.setDynamicProperty(vaultId, 0);
 			}
 
-			// Default placement state
 			block.setPermutation(
 				permutation
 					.withState("kado:vault_type", "normal")
@@ -1177,29 +1203,45 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			);
 		},
 
+		onPlayerBreak(eventData) {
+			const { block, brokenBlockPermutation } = eventData;
+			const vaultId = `kado:vault-${brokenBlockPermutation.getState(
+				"kado:vault_type"
+			)}-(${coordsString(block.location, true)})`;
+			const players = world.getAllPlayers();
+			for (const player of players) {
+				player?.setDynamicProperty(vaultId, undefined);
+				debugMsg(
+					`${
+						player.name
+					}s Dynamic Property: ${vaultId}, set to ${player?.setDynamicProperty(
+						vaultId,
+						undefined
+					)} and removed.`,
+					false
+				);
+			}
+		},
+
 		onPlayerInteract(eventData) {
 			const { dimension, player, block } = eventData;
+			const vaultId = `kado:vault-${block.permutation.getState(
+				"kado:vault_type"
+			)}-(${coordsString(block.location, true)})`;
 			const inventory = player.getComponent("minecraft:inventory");
 			const mainHand = inventory.container?.getItem(
 				player.selectedSlotIndex
 			);
-
-			if (
-				player.getGameMode() === "Survival" &&
-				player.getDynamicProperty(
-					`${block.id}${(coordsString(block.location), false)}`
-				) > 0
-			)
-				return;
 
 			const permutation = block.permutation;
 			const vaultType = block.permutation.getState("kado:vault_type");
 
 			if (
 				player.getGameMode() === "Creative" &&
-				mainHand?.typeId !== "minecraft:trial_key" &&
-				mainHand?.typeId !== "minecraft:ominous_trial_key"
+				(mainHand?.typeId === undefined ||
+					mainHand?.typeId === "kado:vault")
 			) {
+				const oldVaultId = vaultId;
 				block.setPermutation(
 					permutation.withState(
 						"kado:vault_type",
@@ -1212,16 +1254,37 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 					`Permutation set to ${block.permutation.getState(
 						"kado:vault_type"
 					)}`,
-					3
+					false
+				);
+				player?.setDynamicProperty(oldVaultId, undefined);
+				debugMsg(
+					`Dynamic Property: ${oldVaultId} set to ${player?.setDynamicProperty(
+						oldVaultId
+					)} and removed.`,
+					false
+				);
+				player.setDynamicProperty(
+					`kado:vault-${block.permutation.getState(
+						"kado:vault_type"
+					)}-(${coordsString(block.location, true)})`
+				);
+				debugMsg(
+					`New Dynamic Prop Id: kado:vault-${block.permutation.getState(
+						"kado:vault_type"
+					)}-(${coordsString(block.location, true)})`,
+					false
 				);
 				return;
 			}
+
 			if (
-				player.getDynamicProperty(
-					`${block.id}${(coordsString(block.location), false)}`
-				) > 0
-			)
+				player.getDynamicProperty(vaultId) > 0 ||
+				block.permutation.getState("kado:vault_state") !== "active" ||
+				player.getGameMode() !== "Survival"
+			) {
+				dimension.playSound("vault.reject_rewarded_player", block.location);
 				return;
+			}
 
 			const keyType = mainHand?.typeId;
 			const validInterract =
@@ -1258,51 +1321,15 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 				permutation.withState("kado:vault_state", "dispensing")
 			);
 			for (const loot of lootRoll) {
-				debugMsg(`Rolled: ${loot.amount} ${loot.typeId}s`, 3);
+				debugMsg(`Rolled: ${loot.amount} ${loot.typeId}s`, false);
 			}
-			debugMsg(`Rolled a length of ${lootRoll.length}.`, 3);
 			dispenseVaultLoot(dimension, block, lootRoll);
 			system.runTimeout(() => {
-				player.setDynamicProperty(
-					`${block.id}${(coordsString(block.location), false)}`,
-					6000
-				);
+				player.setDynamicProperty(vaultId, 6000);
 			}, lootRoll.length * 20 + 15);
 		},
 	});
 });
-
-function dispenseVaultLoot(dimension, block, lootRoll) {
-	dimension.playSound("vault.open_shutter", block.location);
-	system.runTimeout(() => {
-		let iter = 0;
-		const permutation = block.permutation;
-		const ejecting = system.runInterval(() => {
-			while (true) {
-				if (iter < lootRoll.length) {
-					dimension.spawnItem(
-						new ItemStack(lootRoll[iter].typeId, lootRoll[iter].amount),
-						{
-							x: block.location.x + 0.5,
-							y: block.location.y + 0.75,
-							z: block.location.z + 0.5,
-						}
-					);
-					dimension.playSound("vault.eject_item", block.location);
-					iter++;
-					break;
-				} else {
-					system.clearRun(ejecting);
-					block.setPermutation(
-						permutation.withState("kado:vault_state", "active")
-					);
-					dimension.playSound("vault.deactivate", block.location);
-					break;
-				}
-			}
-		}, 20);
-	}, 10);
-}
 
 /* VAULT SOUND DEFS
 
