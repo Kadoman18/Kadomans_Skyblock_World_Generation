@@ -5,27 +5,27 @@
 		"name": "Skyblock Generation (BP)",
 		"description": "Enables void world generation while keeping biome mapping",
 		"uuid": "cd3dbc3f-4905-4e5c-aaf5-c0e8b70b7d21",
-		"version": [1, 1, 16]
+		"version": [1, 1, 23]
 	},
 	"modules": [
 		{
 			"type": "data",
 			"description": "Trying to modify trial chambers generation.",
 			"uuid": "0d5b64bb-ab30-4a03-a5d5-aec96bb7ad6f",
-			"version": [1, 1, 16]
+			"version": [1, 1, 23]
 		},
 		{
 			"type": "script",
 			"language": "javascript",
 			"entry": "main.js",
 			"uuid": "cbe2d71d-8be0-48d9-a27f-d667f5993477",
-			"version": [1, 1, 0]
+			"version": [1, 1, 2]
 		}
 	],
 	"dependencies": [
 		{
 			"uuid": "4e7ed09c-d7fa-49dd-b69d-962a91f2c125",
-			"version": [1, 0, 0]
+			"version": [1, 0, 3]
 		},
 		{ "module_name": "@minecraft/server", "version": "2.4.0" }
 	],

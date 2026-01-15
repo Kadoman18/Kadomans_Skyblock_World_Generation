@@ -1,4 +1,12 @@
-import { BlockVolume, ItemStack, system, world } from "@minecraft/server";
+import {
+	BlockVolume,
+	ItemStack,
+	system,
+	world,
+	LootItemFunction,
+	EnchantWithLevelsFunction,
+	EnchantmentTypes,
+} from "@minecraft/server";
 
 // --------------------------------------------------
 // Coordinate System Reference (Bedrock)
@@ -22,7 +30,7 @@ Northwest: > (-x, -z) - (Back-Right)
 // --------------------------------------------------
 
 // Enables verbose console output through debugMsg()
-const debugging = false;
+const debugging = true;
 
 /*
 Island schema overview:
@@ -32,27 +40,27 @@ Island schema overview:
 	dimension?: Dimension, // Assigned at runtime
 	origin_offset: Vector3, // Offset from world spawn
 	loot?: {
-        	chestLoc: Vector3, // Offset from island origin
-        	items: {
-        		[key]: {
-                		slot: number,
-                		item: string,
-                		amount: number
-            		}
-        	}
+		chestLoc: Vector3, // Offset from island origin
+		items: {
+			[key]: {
+				slot: number,
+				item: string,
+				amount: number
+	    		}
+		}
 	},
 	blocks: {
-        	[key]: {
-            		block: string,
-            		perms?: {
-                		perm: string,
-                		value: any
-            		},
-            		offset: {
-                		from: Vector3,
-                		to: Vector3
-            		}
-        	}
+		[key]: {
+	    		block: string,
+	    		perms?: {
+				perm: string,
+				value: any
+	    		},
+	    		offset: {
+				from: Vector3,
+				to: Vector3
+	    		}
+		}
     	}
 }
 
@@ -402,7 +410,7 @@ function applyBlockPermutations(iteration, from, to, dimension) {
 	const permValue = iteration.perms.value;
 	// Single-block optimization avoids unnecessary triple loops and prevents edge cases with unloaded neighbors
 	const singleBlock =
-		from.x === to.x && from.y === to.y && from.z === to.z ? from : null;
+		from.x === to.x && from.y === to.y && from.z === to.z ? from : undefined;
 	if (singleBlock) {
 		const block = dimension.getBlock(singleBlock);
 		if (!block) return;
@@ -559,19 +567,6 @@ function generateIsland(island, originPoint) {
 	});
 }
 
-/**
- * Returns a stable identifier for a player.
- * * Uses player.id when available, falling back to player.name.
- * This allows cooldowns and properties to remain consistent
- * even if name-based identification changes in the future.
- *
- * @param {Player} player - Target player.
- * @returns {string} Unique player identifier.
- */
-function getPlayerKey(player) {
-	return player.id ?? player.name;
-}
-
 // --------------------------------------------------
 // After Player Spawn Hook for World Initialization
 // --------------------------------------------------
@@ -709,12 +704,12 @@ function randomBudAmDelay(step) {
  *   kado:budAmWater-minecraft:overworld-(1:64:2)
  *
  * @param {string} id - Dynamic property identifier.
- * @returns {{x:number,y:number,z:number}|null} Parsed coordinates or null if invalid.
+ * @returns {{x:number,y:number,z:number}|undefined} Parsed coordinates or undefined if invalid.
 
 */
 function parseCoordsFromId(id) {
 	const match = id.match(/\((-?\d+):(-?\d+):(-?\d+)\)/);
-	if (!match) return null;
+	if (!match) return undefined;
 	return {
 		x: Number(match[1]),
 		y: Number(match[2]),
@@ -929,7 +924,7 @@ world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 		itemStack?.typeId === "minecraft:shears"
 	)
 		return;
-	let doSpawn = null;
+	let doSpawn = undefined;
 	const enchantable = itemStack?.getComponent("minecraft:enchantable");
 	const hasSilkTouch = enchantable?.hasEnchantment("minecraft:silk_touch");
 	const hasFortune = enchantable?.hasEnchantment("minecraft:fortune");
@@ -1098,15 +1093,66 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 	dimension.fillBlocks(blockHits, "minecraft:deepslate");
 });
 
+const ENCHANT_POOLS = {
+	bow: [
+		{ id: "minecraft:power", max: 5, weight: 10 },
+		{ id: "minecraft:punch", max: 2, weight: 6 },
+		{ id: "minecraft:flame", max: 1, weight: 3 },
+		{ id: "minecraft:infinity", max: 1, weight: 2 },
+	],
+	crossbow: [
+		{ id: "minecraft:multishot", max: 1, weight: 6 },
+		{ id: "minecraft:quick_charge", max: 3, weight: 8 },
+		{ id: "minecraft:piercing", max: 4, weight: 7 },
+	],
+	armor: [
+		{ id: "minecraft:protection", max: 4, weight: 10 },
+		{ id: "minecraft:fire_protection", max: 4, weight: 6 },
+		{ id: "minecraft:blast_protection", max: 4, weight: 4 },
+		{ id: "minecraft:projectile_protection", max: 4, weight: 6 },
+		{ id: "minecraft:thorns", max: 3, weight: 2 },
+	],
+	sword: [
+		{ id: "minecraft:sharpness", max: 5, weight: 10 },
+		{ id: "minecraft:smite", max: 5, weight: 6 },
+		{ id: "minecraft:bane_of_arthropods", max: 5, weight: 2 },
+		{ id: "minecraft:knockback", max: 2, weight: 5 },
+		{ id: "minecraft:fire_aspect", max: 2, weight: 4 },
+		{ id: "minecraft:looting", max: 3, weight: 4 },
+	],
+	axe: [
+		{ id: "minecraft:sharpness", max: 5, weight: 10 },
+		{ id: "minecraft:efficiency", max: 5, weight: 5 },
+		{ id: "minecraft:smite", max: 5, weight: 6 },
+		{ id: "minecraft:bane_of_arthropods", max: 5, weight: 4 },
+		{ id: "minecraft:fire_aspect", max: 2, weight: 4 },
+		{ id: "minecraft:looting", max: 3, weight: 3 },
+	],
+};
+
+function weightedPick(entries) {
+	const total = entries.reduce((s, e) => s + e.weight, 0);
+	let roll = Math.random() * total;
+	for (const e of entries) {
+		if ((roll -= e.weight) <= 0) return e;
+	}
+	return entries[0];
+}
+
 /**
  * Returns a random floating-point number within a range.
  *
- * @param {number} min - Minimum value (inclusive).
- * @param {number} max - Maximum value (exclusive).
+ * @param {number} min - Minimum value.
+ * @param {number} max - Maximum value.
+ * @param {boolean} inclusive - True for inclusive max, false for exclusive.
+ * @param {boolean} whole - True for whole number output, false for floats.
  * @returns {number} Random number between min and max.
  */
-function randomNum(min, max) {
-	return Math.random() * (max - min) + min;
+function randomNum(min, max, inclusive = true, whole = false) {
+	const val = inclusive
+		? Math.random() * (max - min + 1) + min
+		: Math.random() * (max - min) + min;
+	return whole ? Math.floor(val) : val;
 }
 
 /**
@@ -1127,7 +1173,149 @@ function randomNum(min, max) {
 function makeVaultCooldownId(block, player) {
 	return `kado:reCusVault-${block.dimension.id}-${block.permutation.getState(
 		"kado:vault_type"
-	)}-${coordsString(block.location, "noSpace")}-${getPlayerKey(player)}`;
+	)}-${coordsString(block.location, "id")}-${player.name}`;
+}
+
+/**
+ * Emulates vanilla enchant_with_levels for vault loot.
+ *
+ * @param {ItemStack} item
+ * @param {number} minLevel
+ * @param {number} maxLevel
+ */
+function enchantWithLevels(item, minLevel, maxLevel) {
+	const enchComp = item.getComponent("minecraft:enchantable");
+	if (!enchComp) return;
+
+	const power = randomNum(minLevel, maxLevel, true, true);
+
+	let pool;
+	switch (item.typeId) {
+		case "minecraft:bow":
+			pool = ENCHANT_POOLS.bow;
+			break;
+		case "minecraft:crossbow":
+			pool = ENCHANT_POOLS.crossbow;
+			break;
+		case "minecraft:iron_axe":
+		case "minecraft:diamond_axe":
+			pool = ENCHANT_POOLS.axe;
+			break;
+		case "minecraft:iron_chestplate":
+		case "minecraft:diamond_chestplate":
+			pool = ENCHANT_POOLS.armor;
+			break;
+		default:
+			return;
+	}
+
+	const applied = new Set();
+	let rolls = 1;
+
+	// Vanilla-style diminishing rolls
+	while (rolls <= 3 && Math.random() < power / 30) {
+		const ench = weightedPick(pool);
+		if (applied.has(ench.id)) break;
+
+		const levelCap = Math.min(ench.max, Math.max(1, Math.floor(power / 5)));
+
+		enchComp.addEnchantment({
+			type: EnchantmentTypes.get(ench.id),
+			level: Math.floor(Math.random() * levelCap) + 1,
+		});
+
+		applied.add(ench.id);
+		rolls++;
+	}
+}
+
+function enchantBookFromPool(item, pool) {
+	const enchantable = item.getComponent("minecraft:enchantable");
+	if (!enchantable) return;
+
+	const entry = pool[randomNum(0, pool.length - 1, true, true)];
+
+	enchantable.addEnchantment({
+		type: EnchantmentTypes.get(`minecraft:${entry.name}`),
+		level: randomNum(entry.min, entry.max, true, true),
+	});
+}
+
+/**
+ * Applies vault-specific post-processing to loot items.
+ * Mirrors vanilla Trial Vault loot tables as closely as possible.
+ *
+ * @param {ItemStack} item
+ * @param {"normal"|"ominous"} vault
+ */
+function addItemData(item, vault) {
+	switch (vault) {
+		case "normal": {
+			switch (item.typeId) {
+				case "minecraft:bow":
+					enchantWithLevels(item, 5, 15);
+					break;
+
+				case "minecraft:crossbow":
+					enchantWithLevels(item, 5, 20);
+					break;
+
+				case "minecraft:iron_axe":
+				case "minecraft:iron_chestplate":
+					enchantWithLevels(item, 0, 10);
+					break;
+
+				case "minecraft:diamond_axe":
+				case "minecraft:diamond_chestplate":
+					enchantWithLevels(item, 5, 15);
+					break;
+
+				case "minecraft:enchanted_book":
+					enchantBookFromPool(item, [
+						{ name: "sharpness", min: 1, max: 5 },
+						{ name: "bane_of_arthropods", min: 1, max: 5 },
+						{ name: "efficiency", min: 1, max: 5 },
+						{ name: "fortune", min: 1, max: 3 },
+						{ name: "silk_touch", min: 1, max: 1 },
+						{ name: "feather_falling", min: 1, max: 4 },
+						{ name: "riptide", min: 1, max: 3 },
+						{ name: "loyalty", min: 1, max: 3 },
+						{ name: "channeling", min: 1, max: 1 },
+						{ name: "impaling", min: 1, max: 5 },
+						{ name: "mending", min: 1, max: 1 },
+					]);
+					break;
+			}
+			break;
+		}
+
+		case "ominous": {
+			switch (item.typeId) {
+				case "minecraft:crossbow":
+					enchantWithLevels(item, 5, 20);
+					break;
+
+				case "minecraft:diamond_axe":
+				case "minecraft:diamond_chestplate":
+					enchantWithLevels(item, 10, 20);
+					break;
+
+				case "minecraft:enchanted_book":
+					enchantBookFromPool(item, [
+						{ name: "knockback", min: 1, max: 2 },
+						{ name: "punch", min: 1, max: 2 },
+						{ name: "smite", min: 1, max: 5 },
+						{ name: "looting", min: 1, max: 3 },
+						{ name: "multishot", min: 1, max: 1 },
+						{ name: "breach", min: 1, max: 4 },
+						{ name: "density", min: 1, max: 5 },
+						{ name: "wind_burst", min: 1, max: 1 },
+					]);
+					break;
+			}
+			break;
+		}
+	}
 }
 
 /**
@@ -1146,23 +1334,27 @@ function dispenseVaultLoot(dimension, block, lootRoll) {
 	dimension.playSound("vault.open_shutter", block.location);
 	system.runTimeout(() => {
 		let iter = 0;
-		const permutation = block.permutation;
+		const vaultType =
+			block.permutation.getState("kado:vault_type") === "normal"
+				? "normal"
+				: "ominous";
 		const ejecting = system.runInterval(() => {
 			if (iter < lootRoll.length) {
-				const itemEntity = dimension.spawnItem(
-					new ItemStack(lootRoll[iter].typeId, lootRoll[iter].amount),
-					{
-						x: block.location.x + 0.5,
-						y: block.location.y + 1,
-						z: block.location.z + 0.5,
-					}
+				const stack = new ItemStack(
+					lootRoll[iter].typeId,
+					lootRoll[iter].amount
 				);
+				addItemData(stack, vaultType);
+				const itemEntity = dimension.spawnItem(stack, {
+					x: block.location.x + 0.5,
+					y: block.location.y + 1,
+					z: block.location.z + 0.5,
+				});
 				itemEntity.clearVelocity();
-				// Apply controlled vault ejection
 				itemEntity.applyImpulse({
-					x: randomNum(-0.033, 0.033),
+					x: randomNum(-0.033, 0.033, false),
 					y: 0.25,
-					z: randomNum(-0.033, 0.033),
+					z: randomNum(-0.025, 0.025, false),
 				});
 				dimension.playSound("vault.eject_item", block.location);
 				iter++;
@@ -1170,7 +1362,7 @@ function dispenseVaultLoot(dimension, block, lootRoll) {
 			}
 			system.clearRun(ejecting);
 			block.setPermutation(
-				permutation.withState("kado:vault_state", "active")
+				block.permutation.withState("kado:vault_state", "active")
 			);
 			dimension.playSound("vault.deactivate", block.location);
 		}, 20);
@@ -1181,7 +1373,7 @@ function dispenseVaultLoot(dimension, block, lootRoll) {
 // Before Startup Hook Component Registry for Reusable Custom Vaults
 // --------------------------------------------------
 system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
-	blockComponentRegistry.registerCustomComponent("kado:trial_vault", {
+	blockComponentRegistry.registerCustomComponent("kado:vault", {
 		onTick(eventData) {
 			const { block, dimension } = eventData;
 			const activationDist = 3.5;
@@ -1191,12 +1383,12 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 				z: block.location.z + 0.5,
 			};
 			const particleLoc = {
-				x: block.location.x + randomNum(0.1, 0.9),
-				y: block.location.y + randomNum(0.1, 0.9),
-				z: block.location.z + randomNum(0.1, 0.9),
+				x: block.location.x + randomNum(0.1, 0.9, false),
+				y: block.location.y + randomNum(0.1, 0.9, false),
+				z: block.location.z + randomNum(0.1, 0.9, false),
 			};
 			dimension.spawnParticle("minecraft:basic_smoke_particle", particleLoc);
-			// World-level, per player cooldown ticking)
+			// World-level, per player cooldown ticking
 			for (const player of world.getAllPlayers()) {
 				const cooldownId = makeVaultCooldownId(block, player);
 				const cooldown = world.getDynamicProperty(cooldownId) ?? 0;
@@ -1351,3 +1543,400 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 		},
 	});
 });
+/*
+	// reward common
+        {
+          "type": "item",
+          "name": "minecraft:arrow",
+          "weight": 4,
+          "functions": [
+            {
+              "function": "set_count",
+              "count": {
+                "min": 2,
+                "max": 8
+              }
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:arrow",
+          "weight": 4,
+          "functions": [
+            {
+              "function": "set_count",
+              "count": {
+                "min": 2,
+                "max": 8
+              }
+            },
+            {
+              "function": "set_potion",
+              "id": "poison"
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:ominous_bottle",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "set_count",
+              "count": 1.0
+            },
+            {
+              "function": "set_ominous_bottle_amplifier",
+              "amplifier": {
+                "min": 0,
+                "max": 1
+              }
+            }
+          ]
+        }
+	// reward rare
+	{
+          "type": "item",
+          "name": "minecraft:shield",
+          "weight": 3,
+          "functions": [
+            {
+              "function": "set_damage",
+              "damage": {
+                "min": 0.5,
+                "max": 1.0
+              }
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:bow",
+          "weight": 3,
+          "functions": [
+            {
+              "function": "enchant_with_levels",
+              "levels": {
+                "min": 5.0,
+                "max": 15.0
+              },
+              "treasure": true
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:crossbow",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "enchant_with_levels",
+              "levels": {
+                "min": 5.0,
+                "max": 20.0
+              },
+              "treasure": true
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:iron_axe",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "enchant_with_levels",
+              "levels": {
+                "min": 0.0,
+                "max": 10.0
+              },
+              "treasure": true
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:iron_chestplate",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "enchant_with_levels",
+              "levels": {
+                "min": 0.0,
+                "max": 10.0
+              },
+              "treasure": true
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:book",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "enchant_book_for_trading",
+              "enchantments": [
+                {
+                  "name": "sharpness",
+                  "min": 1,
+                  "max": 5
+                },
+                {
+                  "name": "bane_of_arthropods",
+                  "min": 1,
+                  "max": 5
+                },
+                {
+                  "name": "efficiency",
+                  "min": 1,
+                  "max": 5
+                },
+                {
+                  "name": "fortune",
+                  "min": 1,
+                  "max": 3
+                },
+                {
+                  "name": "silk_touch",
+                  "min": 1,
+                  "max": 1
+                },
+                {
+                  "name": "feather_falling",
+                  "min": 1,
+                  "max": 4
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:book",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "enchant_book_for_trading",
+              "enchantments": [
+                {
+                  "name": "riptide",
+                  "min": 1,
+                  "max": 3
+                },
+                {
+                  "name": "loyalty",
+                  "min": 1,
+                  "max": 3
+                },
+                {
+                  "name": "channeling",
+                  "min": 1,
+                  "max": 1
+                },
+                {
+                  "name": "impaling",
+                  "min": 1,
+                  "max": 5
+                },
+                {
+                  "name": "mending",
+                  "min": 1,
+                  "max": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:diamond_chestplate",
+          "weight": 1,
+          "functions": [
+            {
+              "function": "enchant_with_levels",
+              "levels": {
+                "min": 5.0,
+                "max": 15.0
+              },
+              "treasure": true
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:diamond_axe",
+          "weight": 1,
+          "functions": [
+            {
+              "function": "enchant_with_levels",
+              "levels": {
+                "min": 5.0,
+                "max": 15.0
+              },
+              "treasure": true
+            }
+          ]
+        }
+	// reward ominous common
+        {
+          "type": "item",
+          "name": "minecraft:arrow",
+          "weight": 3,
+          "functions": [
+            {
+              "function": "set_count",
+              "count": {
+                "min": 4,
+                "max": 12
+              }
+            },
+            {
+              "function": "set_potion",
+              "id": "strong_slowness"
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:ominous_bottle",
+          "weight": 1,
+          "functions": [
+            {
+              "function": "set_count",
+              "count": 1.0
+            },
+            {
+              "function": "set_ominous_bottle_amplifier",
+              "amplifier": {
+                "min": 2,
+                "max": 4
+              }
+            }
+          ]
+        }
+	// reward ominous rare
+	{
+          "type": "item",
+          "name": "minecraft:crossbow",
+          "weight": 4,
+          "functions": [
+            {
+              "function": "enchant_with_levels",
+              "levels": {
+                "min": 5.0,
+                "max": 20.0
+              },
+              "treasure": true
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:diamond_axe",
+          "weight": 3,
+          "functions": [
+            {
+              "function": "enchant_with_levels",
+              "levels": {
+                "min": 10.0,
+                "max": 20.0
+              },
+              "treasure": true
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:diamond_chestplate",
+          "weight": 3,
+          "functions": [
+            {
+              "function": "enchant_with_levels",
+              "levels": {
+                "min": 10.0,
+                "max": 20.0
+              },
+              "treasure": true
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:book",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "enchant_book_for_trading",
+              "enchantments": [
+                {
+                  "name": "knockback",
+                  "min": 1,
+                  "max": 2
+                },
+                {
+                  "name": "punch",
+                  "min": 1,
+                  "max": 2
+                },
+                {
+                  "name": "smite",
+                  "min": 1,
+                  "max": 5
+                },
+                {
+                  "name": "looting",
+                  "min": 1,
+                  "max": 3
+                },
+                {
+                  "name": "multishot",
+                  "min": 1,
+                  "max": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:book",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "enchant_book_for_trading",
+              "enchantments": [
+                {
+                  "name": "breach",
+                  "min": 1,
+                  "max": 4
+                },
+                {
+                  "name": "density",
+                  "min": 1,
+                  "max": 5
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "name": "minecraft:book",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "enchant_book_for_trading",
+              "enchantments": [
+                {
+                  "name": "wind_burst",
+                  "min": 1,
+                  "max": 1
+                }
+              ]
+            }
+          ]
+        },
+
+*/
