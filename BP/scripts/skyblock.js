@@ -22,7 +22,7 @@ Northwest: > (-x, -z) - (Back-Right)
 // --------------------------------------------------
 
 // Enables verbose console output through debugMsg()
-const debugging = true;
+const debugging = false;
 
 /*
 Island schema overview:
@@ -563,7 +563,7 @@ function generateIsland(island, originPoint) {
 // After Player Spawn Hook for World Initialization
 // --------------------------------------------------
 world.afterEvents.playerSpawn.subscribe((eventData) => {
-	const { player } = eventData;
+	const { player, initialSpawn } = eventData;
 	if (world.getDynamicProperty("kado:overworld_unlocked")) {
 		debugMsg(`This world's overworld has already been initialized`);
 		return;
@@ -593,7 +593,8 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 // After Dimension Change Hook for Nether Initialization
 // --------------------------------------------------
 world.afterEvents.playerDimensionChange.subscribe((eventData) => {
-	const { player, toDimension, toLocation } = eventData;
+	const { player, toDimension, toLocation, fromDimension, fromLocation } =
+		eventData;
 	if (toDimension.id === "minecraft:overworld") {
 		debugMsg(`This world's overworld has already been initialized`);
 		return;
@@ -627,49 +628,53 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 });
 
 /**
- * Determines whether a water block is fully surrounded
- * by a valid budding amethyst geode structure.
- *
- * Structure requirements:
- * - Inner layer: Calcite on all 6 adjacent faces
- * - Outer layer: Smooth basalt surrounding the calcite layer
- *
- * @param { Dimension } dimension - Dimension containing the structure.
- * @param { Vector3 } blockLoc - Location of the central water block.
- * @returns { boolean } True if the structure is valid.
-
-*/
+ * @returns { true | false | null }
+ * true  = structure valid
+ * false = structure invalid
+ * null  = cannot evaluate (unloaded chunks)
+ */
 function validGeode(dimension, blockLoc) {
 	const inner = "minecraft:calcite";
 	const outer = "minecraft:smooth_basalt";
-	return (
-		// Inner
-		dimension.getBlock(blockLoc).above().typeId === inner &&
-		dimension.getBlock(blockLoc).north().typeId === inner &&
-		dimension.getBlock(blockLoc).east().typeId === inner &&
-		dimension.getBlock(blockLoc).south().typeId === inner &&
-		dimension.getBlock(blockLoc).west().typeId === inner &&
-		dimension.getBlock(blockLoc).below().typeId === inner &&
-		// Outer
-		dimension.getBlock(blockLoc).above(2).typeId === outer &&
-		dimension.getBlock(blockLoc).above().north().typeId === outer &&
-		dimension.getBlock(blockLoc).above().east().typeId === outer &&
-		dimension.getBlock(blockLoc).above().south().typeId === outer &&
-		dimension.getBlock(blockLoc).above().west().typeId === outer &&
-		dimension.getBlock(blockLoc).north(2).typeId === outer &&
-		dimension.getBlock(blockLoc).north().east().typeId === outer &&
-		dimension.getBlock(blockLoc).east(2).typeId === outer &&
-		dimension.getBlock(blockLoc).east().south().typeId === outer &&
-		dimension.getBlock(blockLoc).south(2).typeId === outer &&
-		dimension.getBlock(blockLoc).south().west().typeId === outer &&
-		dimension.getBlock(blockLoc).west(2).typeId === outer &&
-		dimension.getBlock(blockLoc).west().north().typeId === outer &&
-		dimension.getBlock(blockLoc).below(2).typeId === outer &&
-		dimension.getBlock(blockLoc).below().north().typeId === outer &&
-		dimension.getBlock(blockLoc).below().east().typeId === outer &&
-		dimension.getBlock(blockLoc).below().south().typeId === outer &&
-		dimension.getBlock(blockLoc).below().west().typeId === outer
-	);
+	const center = dimension.getBlock(blockLoc);
+	if (!center || !dimension.isChunkLoaded(center.location)) return undefined;
+	const innerChecks = [
+		center.above(),
+		center.north(),
+		center.east(),
+		center.south(),
+		center.west(),
+		center.below(),
+	];
+	for (const block of innerChecks) {
+		if (block?.typeId === undefined) return undefined;
+		if (block?.typeId !== inner) return false;
+	}
+	const outerChecks = [
+		center.above(2),
+		center.above().north(),
+		center.above().east(),
+		center.above().south(),
+		center.above().west(),
+		center.north(2),
+		center.north().east(),
+		center.east(2),
+		center.east().south(),
+		center.south(2),
+		center.south().west(),
+		center.west(2),
+		center.west().north(),
+		center.below(2),
+		center.below().north(),
+		center.below().east(),
+		center.below().south(),
+		center.below().west(),
+	];
+	for (const block of outerChecks) {
+		if (block?.typeId === undefined) return undefined;
+		if (block?.typeId !== outer) return false;
+	}
+	return true;
 }
 
 /**
@@ -696,7 +701,7 @@ function randomBudAmDelay(step) {
  *   kado:budAmWater-minecraft:overworld-(1:64:2)
  *
  * @param {string} id - Dynamic property identifier.
- * @returns {{x:number,y:number,z:number}|undefined} Parsed coordinates or undefined if invalid.
+ * @returns {Vector3} Parsed coordinates or undefined if invalid.
 
 */
 function parseCoordsFromId(id) {
@@ -709,8 +714,11 @@ function parseCoordsFromId(id) {
 	};
 }
 
+// --------------------------------------------------
+// After World Load Hook for Renewable Budding Amethyst
+// --------------------------------------------------
+const budAmTickStep = 20;
 world.afterEvents.worldLoad.subscribe(() => {
-	const budAmTickStep = 20;
 	system.runInterval(() => {
 		const propIds = world.getDynamicPropertyIds();
 		for (const propId of propIds) {
@@ -730,13 +738,19 @@ world.afterEvents.worldLoad.subscribe(() => {
 				world.setDynamicProperty(propId, undefined);
 				continue;
 			}
-			const surrounded = validGeode(dimension, waterBlockLoc);
-			// Not surrounded -> reset delay
-			if (!surrounded) {
+			if (!dimension.isChunkLoaded(block.location)) continue;
+			const geodeState = validGeode(dimension, waterBlockLoc);
+			debugMsg(`Geode State: ${geodeState}`);
+			// Some blocks not loaded -> pause (do nothing)
+			if (geodeState === undefined) {
+				continue;
+			}
+			// Structure broken -> reset delay
+			if (geodeState === false) {
 				world.setDynamicProperty(propId, randomBudAmDelay(budAmTickStep));
 				continue;
 			}
-			// Surrounded -> countdown
+			// geodeState === true -> countdown
 			const newDelay = Math.max(remaining - budAmTickStep, 0);
 			world.setDynamicProperty(propId, newDelay);
 			if (newDelay % 600 === 0) {
@@ -747,16 +761,7 @@ world.afterEvents.worldLoad.subscribe(() => {
 				);
 			}
 			if (newDelay === 0) {
-				createTickingArea(dimension, waterBlockLoc, "amethyst");
-				waitForChunkLoaded(dimension, waterBlockLoc, () => {
-					dimension.setBlockType(
-						waterBlockLoc,
-						"minecraft:budding_amethyst"
-					);
-					system.runTimeout(() => {
-						removeTickingArea(dimension, "amethyst");
-					}, 20);
-				});
+				dimension.setBlockType(waterBlockLoc, "minecraft:budding_amethyst");
 				world.setDynamicProperty(propId, undefined);
 				debugMsg(
 					`World Dynamic Property '${propId}' set to ${world.getDynamicProperty(
@@ -776,34 +781,33 @@ world.afterEvents.worldLoad.subscribe(() => {
 // After Player Interact Hook for Renewable Budding Amethyst
 // --------------------------------------------------
 world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
-	const { player, beforeItemStack, itemStack, block, blockFace } = eventData;
+	const {
+		player,
+		beforeItemStack,
+		itemStack,
+		block,
+		blockFace,
+		faceLocation,
+		isFirstEvent,
+	} = eventData;
 	if (
 		player.getGameMode() === "Creative" &&
 		block.typeId === "minecraft:loom" &&
-		itemStack.typeId === "minecraft:brush"
+		itemStack.typeId === "minecraft:brush" &&
+		player.name === "Kadoman18"
 	) {
 		const props = world.getDynamicPropertyIds();
 		for (const prop of props) {
 			if (
 				prop !== "kado:overworld_unlocked" &&
-				prop !== "kado:nether_unlocked"
+				prop !== "kado:nether_unlocked" &&
+				!prop.startsWith("kado:budAmWater")
 			) {
 				world.setDynamicProperty(prop, undefined);
 				debugMsg(`Property: ${prop} found, set to undefined, and removed.`);
 			}
 		}
 		return;
-	}
-
-	if (
-		player.getGameMode() === "Creative" &&
-		block.typeId === "minecraft:cauldron" &&
-		itemStack.getComponent("minecraft:potion")
-	) {
-		const potion = itemStack.getComponent("minecraft:potion");
-		debugMsg(
-			`Effect Type: ${potion.potionEffectType.id}\nEffect Duration (ticks): ${potion.potionEffectType.durationTicks}\nEffect Delivery Type: ${potion.potionDeliveryType.id}`
-		);
 	}
 	if (
 		(beforeItemStack?.typeId === "minecraft:water_bucket" &&
@@ -848,11 +852,9 @@ world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
 				break;
 			}
 		}
-		debugMsg(`Tempblock: ${tempBlock.typeId}`);
 		if (tempBlock.typeId !== "minecraft:water") return;
-		debugMsg(`Water Found: ${coordsString(tempBlock.location)}`);
 		const placedWaterBlock = tempBlock;
-		const delay = randomBudAmDelay(randomBudAmDelayStep);
+		const delay = randomBudAmDelay(budAmTickStep);
 		const propId = `kado:budAmWater-${player.dimension.id}-${coordsString(
 			placedWaterBlock.location,
 			"id"
@@ -898,7 +900,7 @@ world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
 // Renewable Spore Blossoms
 // --------------------------------------------------
 world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
-	const { player, block, itemStack } = eventData;
+	const { player, block, itemStack, dimension } = eventData;
 	if (
 		player.getGameMode() !== "Survival" ||
 		itemStack?.typeId === "minecraft:shears"
@@ -980,7 +982,7 @@ world.afterEvents.itemUse.subscribe((eventData) => {
 // After Entity Spawn Hook for Renewable Deepslate
 // --------------------------------------------------
 world.afterEvents.entitySpawn.subscribe((eventData) => {
-	const entity = eventData.entity;
+	const { entity, cause } = eventData;
 	if (entity.typeId !== "minecraft:splash_potion") return;
 	const source = entity.getComponent("minecraft:projectile")?.owner;
 	if (
@@ -996,31 +998,18 @@ world.afterEvents.entitySpawn.subscribe((eventData) => {
 // After Projectile Hit Block Hook for Renewable Deepslate
 // --------------------------------------------------
 world.afterEvents.projectileHitBlock.subscribe((eventData) => {
-	const { dimension, hitVector, location, projectile, source } = eventData;
+	const { dimension, location, projectile, source, hitVector } = eventData;
+	const { face, block, faceLocation } = eventData.getBlockHit();
 	if (
 		projectile.typeId !== "minecraft:splash_potion" ||
 		!source.hasTag("kado:threwThickPotion")
 	)
 		return;
 	source.removeTag("kado:threwThickPotion");
-	let face;
-	// Determine impact face from hitVector dominance.
-	// This allows accurate placement offset even when
-	// Bedrock returns ambiguous projectile collision data.
-	const absX = Math.abs(hitVector.x);
-	const absY = Math.abs(hitVector.y);
-	const absZ = Math.abs(hitVector.z);
-	if (absX > absY && absX > absZ) {
-		face = hitVector.x > 0 ? "west" : "east";
-	} else if (absY > absX && absY > absZ) {
-		face = hitVector.y > 0 ? "down" : "up";
-	} else {
-		face = hitVector.z > 0 ? "north" : "south";
-	}
 	debugMsg(`Potion hit face: "${face}" at ${coordsString(location)}`);
 	let effectCenter;
 	switch (face) {
-		case "north": {
+		case "North": {
 			effectCenter = {
 				x: Math.floor(location.x) + 0.5,
 				y: Math.floor(location.y) + 0.5,
@@ -1028,7 +1017,7 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 			};
 			break;
 		}
-		case "west": {
+		case "West": {
 			effectCenter = {
 				x: Math.floor(location.x) - 0.5,
 				y: Math.floor(location.y) + 0.5,
@@ -1036,7 +1025,7 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 			};
 			break;
 		}
-		case "down": {
+		case "Down": {
 			effectCenter = {
 				x: Math.floor(location.x) + 0.5,
 				y: Math.floor(location.y) - 0.5,
@@ -1231,7 +1220,7 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			}
 		},
 		onPlace(eventData) {
-			const { block } = eventData;
+			const { block, previousBlock, dimension } = eventData;
 			block.setPermutation(
 				block.permutation
 					.withState("kado:vault_type", "normal")
@@ -1253,7 +1242,7 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			}
 		},
 		onPlayerInteract(eventData) {
-			const { dimension, player, block } = eventData;
+			const { dimension, player, block, face, faceLocation } = eventData;
 			const inventory = player.getComponent("minecraft:inventory");
 			const mainHand = inventory.container?.getItem(
 				player.selectedSlotIndex
