@@ -1,4 +1,11 @@
-import { BlockVolume, ItemStack, system, world } from "@minecraft/server";
+import {
+	BlockVolume,
+	ItemStack,
+	Player,
+	system,
+	Vector3,
+	world,
+} from "@minecraft/server";
 
 // --------------------------------------------------
 // Coordinate System Reference (Bedrock)
@@ -231,6 +238,12 @@ const overworldIslands = [starterIsland, sandIsland];
 const netherIslands = [netherIsland];
 
 // --------------------------------------------------
+// Player Cache
+// --------------------------------------------------
+/** @type {Map<string, Player>} */
+const players = new Map();
+
+// --------------------------------------------------
 // Utility Functions
 // --------------------------------------------------
 
@@ -241,11 +254,7 @@ const netherIslands = [netherIsland];
  * @param {boolean} error - Displays a console warning, true if error, else false.
  */
 function debugMsg(message, error = false) {
-	if (error) {
-		console.warn(message);
-		return;
-	}
-	if (debugging) console.log(message);
+	error ? console.warn(message) : debugging && console.log(message);
 }
 
 /**
@@ -256,14 +265,17 @@ function debugMsg(message, error = false) {
  * @returns {string} Formatted string.
  */
 function coordsString(coords, type = "debug") {
-	if (type === "debug") {
-		return `(X: ${coords.x}, Y: ${coords.y}, Z: ${coords.z})`;
-	} else if (type === "command") {
-		return `${coords.x} ${coords.y} ${coords.z}`;
-	} else if (type === "noSpace") {
-		return `${coords.x}${coords.y}${coords.z}`;
-	} else if (type === "id") {
-		return `(${coords.x}:${coords.y}:${coords.z})`;
+	switch (type) {
+		case "debug":
+			return `(X: ${coords.x}, Y: ${coords.y}, Z: ${coords.z})`;
+		case "command":
+			return `${coords.x} ${coords.y} ${coords.z}`;
+		case "noSpace":
+			return `${coords.x}${coords.y}${coords.z}`;
+		case "id":
+			return `(${coords.x}:${coords.y}:${coords.z})`;
+		default:
+			return `Invalid type provided for coordsString Function.`;
 	}
 }
 
@@ -294,6 +306,43 @@ function ticksToTime(ticks) {
 	const minutes = Math.floor((totalSeconds % 3600) / 60);
 	const seconds = totalSeconds % 60;
 	return { hours, minutes, seconds };
+}
+
+/**
+ * Extracts block coordinates from a dynamic property identifier.
+ * * Expected coordinate format inside the id:
+ *   (X:Y:Z)
+ * * Example:
+ *   kado:budAmWater-minecraft:overworld-(1:64:2)
+ *
+ * @param {string} id - Dynamic property identifier.
+ * @returns {Vector3} Parsed coordinates or undefined if invalid.
+
+*/
+function parseCoordsFromId(id) {
+	const match = id.match(/\((-?\d+):(-?\d+):(-?\d+)\)/);
+	if (!match) return undefined;
+	return {
+		x: Number(match[1]),
+		y: Number(match[2]),
+		z: Number(match[3]),
+	};
+}
+
+/**
+ * Returns a random floating-point number within a range.
+ *
+ * @param {number} min - Minimum value.
+ * @param {number} max - Maximum value.
+ * @param {boolean} inclusive - True for inclusive max, false for exclusive.
+ * @param {boolean} whole - True for whole number output, false for floats.
+ * @returns {number} Random number between min and max.
+ */
+function randomNum(min, max, inclusive = true, whole = false) {
+	const val = inclusive
+		? Math.random() * (max - min + 1) + min
+		: Math.random() * (max - min) + min;
+	return whole ? Math.floor(val) : val;
 }
 
 // --------------------------------------------------
@@ -468,10 +517,8 @@ function buildIslandBlocks(island, originPoint) {
  */
 function fillChest(island, originPoint) {
 	const dimension = island.dimension;
-	const chestLoc = calculateOffsets(
-		calculateOffsets(originPoint, island.origin_offset),
-		island.loot.chestLoc
-	);
+	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
+	const chestLoc = calculateOffsets(islandOrigin, island.loot.chestLoc);
 	const chestBlock = dimension.getBlock(chestLoc);
 	if (chestBlock?.typeId === "minecraft:chest") {
 		const chestEntity = chestBlock.getComponent("minecraft:inventory");
@@ -560,78 +607,13 @@ function generateIsland(island, originPoint) {
 }
 
 // --------------------------------------------------
-// After Player Spawn Hook for World Initialization
+// Renewable Amethyst Functions
 // --------------------------------------------------
-world.afterEvents.playerSpawn.subscribe((eventData) => {
-	const { player, initialSpawn } = eventData;
-	if (world.getDynamicProperty("kado:overworld_unlocked")) {
-		debugMsg(`This world's overworld has already been initialized`);
-		return;
-	}
-	const spawn = {
-		x: world.getDefaultSpawnLocation().x,
-		y: 65,
-		z: world.getDefaultSpawnLocation().z,
-	};
-	debugMsg(
-		`Spawn Found: ${coordsString(spawn)}\n${
-			player.name
-		} awaiting island generation.`
-	);
-	suspendPlayer(player, { x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 });
-	// Thanks Lyvvy <3
-	for (const island of overworldIslands) generateIsland(island, spawn);
-	world.setDynamicProperty("kado:overworld_unlocked", true);
-	debugMsg(
-		`Dynamic Property: "kado:overworld_unlocked" - ${world.getDynamicProperty(
-			"kado:overworld_unlocked"
-		)}`
-	);
-});
-
-// --------------------------------------------------
-// After Dimension Change Hook for Nether Initialization
-// --------------------------------------------------
-world.afterEvents.playerDimensionChange.subscribe((eventData) => {
-	const { player, toDimension, toLocation, fromDimension, fromLocation } =
-		eventData;
-	if (toDimension.id === "minecraft:overworld") {
-		debugMsg(`This world's overworld has already been initialized`);
-		return;
-	} else if (
-		toDimension.id === "minecraft:nether" &&
-		world.getDynamicProperty("kado:nether_unlocked")
-	) {
-		debugMsg(`This world's nether has already been initialized`);
-		return;
-	} else if (toDimension.id === "minecraft:the_end") return;
-	debugMsg(`toLocation: ${coordsString(toLocation)}`);
-	debugMsg(`player.location: ${coordsString(player.location)}`);
-	const origin = { x: toLocation.x, y: toLocation.y + 5, z: toLocation.z };
-	suspendPlayer(
-		player,
-		{ x: origin.x + 0.5, y: origin.y, z: origin.z + 0.99 },
-		10
-	);
-	debugMsg(
-		`Origin Found: ${coordsString(origin)}\n${
-			player.name
-		} awaiting island generation.`
-	);
-	for (const island of netherIslands) generateIsland(island, origin);
-	world.setDynamicProperty("kado:nether_unlocked", true);
-	debugMsg(
-		`Dynamic Property: "kado:nether_unlocked" - ${world.getDynamicProperty(
-			"kado:nether_unlocked"
-		)}`
-	);
-});
-
 /**
- * @returns { true | false | null }
+ * @returns { true | false | undefined }
  * true  = structure valid
  * false = structure invalid
- * null  = cannot evaluate (unloaded chunks)
+ * undefined  = cannot evaluate (unloaded chunks)
  */
 function validGeode(dimension, blockLoc) {
 	const inner = "minecraft:calcite";
@@ -687,397 +669,15 @@ function validGeode(dimension, blockLoc) {
  * @returns { number } Randomized delay in ticks.
 
 */
-function randomBudAmDelay(step) {
+function randomBudAmDelay(step = 20) {
 	const min = 108000;
 	const max = 144000;
-	return min + Math.floor(Math.random() * ((max - min) / step + 1)) * step;
-}
-
-/**
- * Extracts block coordinates from a dynamic property identifier.
- * * Expected coordinate format inside the id:
- *   (X:Y:Z)
- * * Example:
- *   kado:budAmWater-minecraft:overworld-(1:64:2)
- *
- * @param {string} id - Dynamic property identifier.
- * @returns {Vector3} Parsed coordinates or undefined if invalid.
-
-*/
-function parseCoordsFromId(id) {
-	const match = id.match(/\((-?\d+):(-?\d+):(-?\d+)\)/);
-	if (!match) return undefined;
-	return {
-		x: Number(match[1]),
-		y: Number(match[2]),
-		z: Number(match[3]),
-	};
+	return min + Math.round(Math.random() * ((max - min) / step + 1)) * step;
 }
 
 // --------------------------------------------------
-// After World Load Hook for Renewable Budding Amethyst
+// Reusable Custom Vaults Functions
 // --------------------------------------------------
-const budAmTickStep = 20;
-world.afterEvents.worldLoad.subscribe(() => {
-	system.runInterval(() => {
-		const propIds = world.getDynamicPropertyIds();
-		for (const propId of propIds) {
-			if (!propId.startsWith("kado:budAmWater-")) continue;
-			const remaining = world.getDynamicProperty(propId);
-			const waterBlockLoc = parseCoordsFromId(propId);
-			if (!waterBlockLoc) {
-				world.setDynamicProperty(propId, undefined);
-				continue;
-			}
-			const dimension = world.getDimension(propId.split("-")[1]);
-			if (!dimension) continue;
-			const block = dimension.getBlock(waterBlockLoc);
-			if (!block) continue;
-			// Water removed -> forget
-			if (block.typeId !== "minecraft:water") {
-				world.setDynamicProperty(propId, undefined);
-				continue;
-			}
-			if (!dimension.isChunkLoaded(block.location)) continue;
-			const geodeState = validGeode(dimension, waterBlockLoc);
-			debugMsg(`Geode State: ${geodeState}`);
-			// Some blocks not loaded -> pause (do nothing)
-			if (geodeState === undefined) {
-				continue;
-			}
-			// Structure broken -> reset delay
-			if (geodeState === false) {
-				world.setDynamicProperty(propId, randomBudAmDelay(budAmTickStep));
-				continue;
-			}
-			// geodeState === true -> countdown
-			const newDelay = Math.max(remaining - budAmTickStep, 0);
-			world.setDynamicProperty(propId, newDelay);
-			if (newDelay % 600 === 0) {
-				const time = ticksToTime(newDelay);
-				debugMsg(
-					`[${propId}] Cooldown: ${time.minutes}m ${time.seconds}s`,
-					false
-				);
-			}
-			if (newDelay === 0) {
-				dimension.setBlockType(waterBlockLoc, "minecraft:budding_amethyst");
-				world.setDynamicProperty(propId, undefined);
-				debugMsg(
-					`World Dynamic Property '${propId}' set to ${world.getDynamicProperty(
-						propId
-					)} and removed.\nWater at ${coordsString(
-						waterBlockLoc
-					)} converted to Buddding Amethyst.`,
-					false
-				);
-			}
-			continue;
-		}
-	}, budAmTickStep);
-});
-
-// --------------------------------------------------
-// After Player Interact Hook for Renewable Budding Amethyst
-// --------------------------------------------------
-world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
-	const {
-		player,
-		beforeItemStack,
-		itemStack,
-		block,
-		blockFace,
-		faceLocation,
-		isFirstEvent,
-	} = eventData;
-	if (
-		player.getGameMode() === "Creative" &&
-		block.typeId === "minecraft:loom" &&
-		itemStack.typeId === "minecraft:brush" &&
-		player.name === "Kadoman18"
-	) {
-		const props = world.getDynamicPropertyIds();
-		for (const prop of props) {
-			if (
-				prop !== "kado:overworld_unlocked" &&
-				prop !== "kado:nether_unlocked" &&
-				!prop.startsWith("kado:budAmWater")
-			) {
-				world.setDynamicProperty(prop, undefined);
-				debugMsg(`Property: ${prop} found, set to undefined, and removed.`);
-			}
-		}
-		return;
-	}
-	if (
-		(beforeItemStack?.typeId === "minecraft:water_bucket" &&
-			itemStack?.typeId === "minecraft:bucket" &&
-			player.getGameMode() === "Survival") ||
-		(beforeItemStack?.typeId === "minecraft:water_bucket" &&
-			(itemStack?.typeId === "minecraft:bucket" ||
-				itemStack?.typeId === "minecraft:water_bucket") &&
-			player.getGameMode() === "Creative")
-	) {
-		// ------------------------------------------
-		// Water placed
-		// ------------------------------------------
-		let tempBlock;
-		switch (blockFace) {
-			case "Up": {
-				tempBlock = block.above();
-				break;
-			}
-			case "North": {
-				tempBlock = block.north();
-				break;
-			}
-			case "East": {
-				tempBlock = block.east();
-				break;
-			}
-			case "South": {
-				tempBlock = block.south();
-				break;
-			}
-			case "West": {
-				tempBlock = block.west();
-				break;
-			}
-			case "Down": {
-				tempBlock = block.below();
-				break;
-			}
-			default: {
-				tempBlock = undefined;
-				break;
-			}
-		}
-		if (tempBlock.typeId !== "minecraft:water") return;
-		const placedWaterBlock = tempBlock;
-		const delay = randomBudAmDelay(budAmTickStep);
-		const propId = `kado:budAmWater-${player.dimension.id}-${coordsString(
-			placedWaterBlock.location,
-			"id"
-		)}`;
-		world.setDynamicProperty(propId, delay);
-		debugMsg(
-			`World Dynamic Property '${propId}' set to world with a value of ${world.getDynamicProperty(
-				propId
-			)}.`,
-			false
-		);
-		return;
-	}
-
-	// ------------------------------------------
-	// Water picked up
-	// ------------------------------------------
-	if (
-		(beforeItemStack?.typeId === "minecraft:bucket" &&
-			itemStack?.typeId === "minecraft:water_bucket" &&
-			player.getGameMode() === "Survival") ||
-		(beforeItemStack?.typeId === "minecraft:water_bucket" &&
-			itemStack?.typeId === "minecraft:water_bucket" &&
-			player.getGameMode() === "Creative")
-	) {
-		const propId = `kado:budAmWater-${player.dimension.id}-${coordsString(
-			block.location,
-			"id"
-		)}`;
-		world.setDynamicProperty(propId, undefined);
-		debugMsg(
-			`World Dynamic Property '${propId}' set to ${world.getDynamicProperty(
-				propId
-			)} and removed.`,
-			false
-		);
-	}
-});
-
-// --------------------------------------------------
-// Before Player Break Block Hook for:
-// Silk Touch Budding Amethyst
-// Renewable Spore Blossoms
-// --------------------------------------------------
-world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
-	const { player, block, itemStack, dimension } = eventData;
-	if (
-		player.getGameMode() !== "Survival" ||
-		itemStack?.typeId === "minecraft:shears"
-	)
-		return;
-	let doSpawn = undefined;
-	const enchantable = itemStack?.getComponent("minecraft:enchantable");
-	const hasSilkTouch = enchantable?.hasEnchantment("minecraft:silk_touch");
-	const hasFortune = enchantable?.hasEnchantment("minecraft:fortune");
-
-	// ------------------------------------------
-	// Fortune level (0–3)
-	// ------------------------------------------
-	let fortuneLevel = 0;
-	if (hasFortune) {
-		const fortune = enchantable.getEnchantment("minecraft:fortune");
-		fortuneLevel = Math.min(fortune?.level ?? 0, 3);
-	}
-
-	// ------------------------------------------
-	// Flowering azalea (Fortune-scaled)
-	// ------------------------------------------
-	if (block.typeId === "minecraft:azalea_leaves_flowered" && !hasSilkTouch) {
-		const dropChance = 0.01 * (1 + fortuneLevel);
-		const dropRoll = Math.random();
-		debugMsg(`Chance: ${dropChance}\nRoll: ${dropRoll}`);
-		if (dropRoll < dropChance) {
-			doSpawn = "minecraft:spore_blossom";
-			debugMsg(`Spore Blossom Dropped`);
-		}
-	}
-
-	// ------------------------------------------
-	// Budding amethyst (Silk Touch only)
-	// ------------------------------------------
-	if (
-		!doSpawn &&
-		block.typeId === "minecraft:budding_amethyst" &&
-		itemStack &&
-		hasSilkTouch
-	) {
-		const isValidPickaxe =
-			itemStack.typeId === "minecraft:copper_pickaxe" ||
-			itemStack.typeId === "minecraft:iron_pickaxe" ||
-			itemStack.typeId === "minecraft:diamond_pickaxe" ||
-			itemStack.typeId === "minecraft:netherite_pickaxe";
-		if (isValidPickaxe) {
-			doSpawn = "minecraft:budding_amethyst";
-			debugMsg(`Budding Amethyst Dropped`);
-		}
-	}
-	if (!doSpawn) return;
-	const dropBlock = new ItemStack(doSpawn, 1);
-	system.run(() => {
-		player.dimension.spawnItem(dropBlock, {
-			x: block.location.x + 0.5,
-			y: block.location.y + 0.5,
-			z: block.location.z + 0.5,
-		});
-	});
-});
-
-// --------------------------------------------------
-// After Item Use Hook for Renewable Deepslate
-// --------------------------------------------------
-world.afterEvents.itemUse.subscribe((eventData) => {
-	const { source, itemStack } = eventData;
-	if (
-		source.typeId !== "minecraft:player" ||
-		itemStack.typeId !== "minecraft:splash_potion" ||
-		itemStack.localizationKey !== "%potion.thick.splash.name"
-	)
-		return;
-	source.addTag("kado:threwThickPotion");
-	debugMsg(`${source.name} threw a Thick Splash Potion`);
-});
-
-// --------------------------------------------------
-// After Entity Spawn Hook for Renewable Deepslate
-// --------------------------------------------------
-world.afterEvents.entitySpawn.subscribe((eventData) => {
-	const { entity, cause } = eventData;
-	if (entity.typeId !== "minecraft:splash_potion") return;
-	const source = entity.getComponent("minecraft:projectile")?.owner;
-	if (
-		source?.typeId !== "minecraft:player" ||
-		!source?.hasTag("kado:threwThickPotion")
-	)
-		return;
-	entity.addTag("kado:isThickPotion");
-	debugMsg(`Marked splash potion ${entity.id} as Thick Potion`);
-});
-
-// --------------------------------------------------
-// After Projectile Hit Block Hook for Renewable Deepslate
-// --------------------------------------------------
-world.afterEvents.projectileHitBlock.subscribe((eventData) => {
-	const { dimension, location, projectile, source, hitVector } = eventData;
-	const { face, block, faceLocation } = eventData.getBlockHit();
-	if (
-		projectile.typeId !== "minecraft:splash_potion" ||
-		!source.hasTag("kado:threwThickPotion")
-	)
-		return;
-	source.removeTag("kado:threwThickPotion");
-	debugMsg(`Potion hit face: "${face}" at ${coordsString(location)}`);
-	let effectCenter;
-	switch (face) {
-		case "North": {
-			effectCenter = {
-				x: Math.floor(location.x) + 0.5,
-				y: Math.floor(location.y) + 0.5,
-				z: Math.floor(location.z) - 0.5,
-			};
-			break;
-		}
-		case "West": {
-			effectCenter = {
-				x: Math.floor(location.x) - 0.5,
-				y: Math.floor(location.y) + 0.5,
-				z: Math.floor(location.z) + 0.5,
-			};
-			break;
-		}
-		case "Down": {
-			effectCenter = {
-				x: Math.floor(location.x) + 0.5,
-				y: Math.floor(location.y) - 0.5,
-				z: Math.floor(location.z) + 0.5,
-			};
-			break;
-		}
-		default: {
-			effectCenter = {
-				x: Math.floor(location.x) + 0.5,
-				y: Math.floor(location.y) + 0.5,
-				z: Math.floor(location.z) + 0.5,
-			};
-			break;
-		}
-	}
-	debugMsg(`Effect location calculated to ${coordsString(effectCenter)}.`);
-	const radius = 1.4;
-	const blockHitsVol = new BlockVolume(
-		{
-			x: effectCenter.x + radius,
-			y: effectCenter.y + radius,
-			z: effectCenter.z + radius,
-		},
-		{
-			x: effectCenter.x - radius,
-			y: effectCenter.y - radius,
-			z: effectCenter.z - radius,
-		}
-	);
-	const blockHits = dimension.getBlocks(blockHitsVol, {
-		includeTypes: ["minecraft:stone"],
-	});
-	dimension.fillBlocks(blockHits, "minecraft:deepslate");
-});
-
-/**
- * Returns a random floating-point number within a range.
- *
- * @param {number} min - Minimum value.
- * @param {number} max - Maximum value.
- * @param {boolean} inclusive - True for inclusive max, false for exclusive.
- * @param {boolean} whole - True for whole number output, false for floats.
- * @returns {number} Random number between min and max.
- */
-function randomNum(min, max, inclusive = true, whole = false) {
-	const val = inclusive
-		? Math.random() * (max - min + 1) + min
-		: Math.random() * (max - min) + min;
-	return whole ? Math.floor(val) : val;
-}
-
 /**
  * Generates a unique cooldown identifier for a vault-player pair.
  * * Cooldowns are scoped by:
@@ -1107,7 +707,7 @@ function makeVaultCooldownId(block, player) {
  * - Applies controlled impulse for visual ejection
  * - Returns vault to ACTIVE state after completion
  *
- * @param {Dimension} dimension - Vault dimension.
+ * @param {Dimension} dimension - Vault Block dimension.
  * @param {Block} block - Vault block.
  * @param {Array<ItemStack>} lootRoll - Generated loot entries.
  */
@@ -1183,7 +783,7 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			if (block.permutation.getState("kado:vault_state") === "dispensing")
 				return;
 			let hasEligiblePlayerNearby = false;
-			for (const player of dimension.getPlayers()) {
+			for (const player of players.values()) {
 				const xDist = player.location.x - blockCenter.x;
 				const yDist = player.location.y - blockCenter.y;
 				const zDist = player.location.z - blockCenter.z;
@@ -1316,4 +916,450 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			}, lootRoll.length * 20 + 15);
 		},
 	});
+});
+
+// --------------------------------------------------
+// After World Load Hook for Renewable Budding Amethyst
+// --------------------------------------------------
+world.afterEvents.worldLoad.subscribe(() => {
+	for (const player of world.getAllPlayers()) {
+		players.set(player.id, player);
+	}
+	debugMsg(`Initialized player registry with ${players.size} players.`);
+	system.runInterval(() => {
+		const propIds = world.getDynamicPropertyIds();
+		for (const propId of propIds) {
+			if (!propId.startsWith("kado:budAmWater-")) continue;
+			const remaining = world.getDynamicProperty(propId);
+			const waterBlockLoc = parseCoordsFromId(propId);
+			if (!waterBlockLoc) {
+				world.setDynamicProperty(propId, undefined);
+				continue;
+			}
+			const dimension = world.getDimension(propId.split("-")[1]);
+			if (!dimension) continue;
+			const block = dimension.getBlock(waterBlockLoc);
+			if (!block) continue;
+			// Water removed -> forget
+			if (block.typeId !== "minecraft:water") {
+				world.setDynamicProperty(propId, undefined);
+				continue;
+			}
+			if (!dimension.isChunkLoaded(block.location)) continue;
+			const geodeState = validGeode(dimension, waterBlockLoc);
+			debugMsg(`Geode State: ${geodeState}`);
+			// Some blocks not loaded -> pause (do nothing)
+			if (geodeState === undefined) {
+				continue;
+			}
+			// Structure broken -> reset delay
+			if (geodeState === false) {
+				world.setDynamicProperty(propId, randomBudAmDelay());
+				continue;
+			}
+			// geodeState === true -> countdown
+			const newDelay = Math.max(remaining - 20, 0);
+			world.setDynamicProperty(propId, newDelay);
+			if (newDelay % 600 === 0) {
+				const time = ticksToTime(newDelay);
+				debugMsg(
+					`[${propId}] Cooldown: ${time.minutes}m ${time.seconds}s`,
+					false
+				);
+			}
+			if (newDelay === 0) {
+				dimension.setBlockType(waterBlockLoc, "minecraft:budding_amethyst");
+				world.setDynamicProperty(propId, undefined);
+				debugMsg(
+					`World Dynamic Property '${propId}' set to ${world.getDynamicProperty(
+						propId
+					)} and removed.\nWater at ${coordsString(
+						waterBlockLoc
+					)} converted to Buddding Amethyst.`,
+					false
+				);
+			}
+			continue;
+		}
+	}, 20);
+});
+
+// --------------------------------------------------
+// After Player Join Hook to update Players Cache Map
+// --------------------------------------------------
+world.afterEvents.playerJoin.subscribe((eventData) => {
+	const { playerId, playerName } = eventData;
+	// Player object is not available yet — wait 1 tick
+	system.run(() => {
+		const player = world.getAllPlayers().find((p) => p.id === playerId);
+		if (!player) return;
+
+		players.set(player.id, player);
+		debugMsg(`${playerName} joined. Registry size: ${players.size}`);
+	});
+});
+
+// --------------------------------------------------
+// After Player Spawn Hook for World Initialization
+// --------------------------------------------------
+world.afterEvents.playerSpawn.subscribe((eventData) => {
+	const { player, initialSpawn } = eventData;
+	if (world.getDynamicProperty("kado:overworld_unlocked")) {
+		debugMsg(`This world's overworld has already been initialized`);
+		return;
+	}
+	const spawn = {
+		x: world.getDefaultSpawnLocation().x,
+		y: 65,
+		z: world.getDefaultSpawnLocation().z,
+	};
+	debugMsg(
+		`Spawn Found: ${coordsString(spawn)}\n${
+			player.name
+		} awaiting island generation.`
+	);
+	suspendPlayer(player, { x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 });
+	// Thanks Lyvvy <3
+	for (const island of overworldIslands) generateIsland(island, spawn);
+	world.setDynamicProperty("kado:overworld_unlocked", true);
+	debugMsg(
+		`Dynamic Property: "kado:overworld_unlocked" - ${world.getDynamicProperty(
+			"kado:overworld_unlocked"
+		)}`
+	);
+});
+
+// --------------------------------------------------
+// After Player Interact Hook for Renewable Budding Amethyst
+// --------------------------------------------------
+world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
+	const {
+		player,
+		beforeItemStack,
+		itemStack,
+		block,
+		blockFace,
+		faceLocation,
+		isFirstEvent,
+	} = eventData;
+	if (
+		player.getGameMode() === "Creative" &&
+		block.typeId === "minecraft:loom" &&
+		itemStack.typeId === "minecraft:brush"
+	) {
+		const props = world.getDynamicPropertyIds();
+		for (const prop of props) {
+			if (
+				prop !== "kado:overworld_unlocked" &&
+				prop !== "kado:nether_unlocked" &&
+				!prop.startsWith("kado:budAmWater")
+			) {
+				world.setDynamicProperty(prop, undefined);
+				debugMsg(`Property: ${prop} found, set to undefined, and removed.`);
+			}
+		}
+		return;
+	}
+	if (
+		(beforeItemStack?.typeId === "minecraft:water_bucket" &&
+			itemStack?.typeId === "minecraft:bucket" &&
+			player.getGameMode() === "Survival") ||
+		(beforeItemStack?.typeId === "minecraft:water_bucket" &&
+			(itemStack?.typeId === "minecraft:bucket" ||
+				itemStack?.typeId === "minecraft:water_bucket") &&
+			player.getGameMode() === "Creative")
+	) {
+		// ------------------------------------------
+		// Water placed
+		// ------------------------------------------
+		let tempBlock;
+		switch (blockFace) {
+			case "Up": {
+				tempBlock = block.above();
+				break;
+			}
+			case "North": {
+				tempBlock = block.north();
+				break;
+			}
+			case "East": {
+				tempBlock = block.east();
+				break;
+			}
+			case "South": {
+				tempBlock = block.south();
+				break;
+			}
+			case "West": {
+				tempBlock = block.west();
+				break;
+			}
+			case "Down": {
+				tempBlock = block.below();
+				break;
+			}
+			default: {
+				tempBlock = undefined;
+				break;
+			}
+		}
+		if (tempBlock.typeId !== "minecraft:water") return;
+		const placedWaterBlock = tempBlock;
+		const delay = randomBudAmDelay();
+		const propId = `kado:budAmWater-${player.dimension.id}-${coordsString(
+			placedWaterBlock.location,
+			"id"
+		)}`;
+		world.setDynamicProperty(propId, delay);
+		debugMsg(
+			`World Dynamic Property '${propId}' set to world with a value of ${world.getDynamicProperty(
+				propId
+			)}.`,
+			false
+		);
+		return;
+	}
+
+	// ------------------------------------------
+	// Water picked up
+	// ------------------------------------------
+	if (
+		(beforeItemStack?.typeId === "minecraft:bucket" &&
+			itemStack?.typeId === "minecraft:water_bucket" &&
+			player.getGameMode() === "Survival") ||
+		(beforeItemStack?.typeId === "minecraft:water_bucket" &&
+			itemStack?.typeId === "minecraft:water_bucket" &&
+			player.getGameMode() === "Creative")
+	) {
+		const propId = `kado:budAmWater-${player.dimension.id}-${coordsString(
+			block.location,
+			"id"
+		)}`;
+		world.setDynamicProperty(propId, undefined);
+		debugMsg(
+			`World Dynamic Property '${propId}' set to ${world.getDynamicProperty(
+				propId
+			)} and removed.`,
+			false
+		);
+	}
+});
+
+// --------------------------------------------------
+// Before Player Break Block Hook for:
+// Silk Touch Budding Amethyst
+// Renewable Spore Blossoms
+// --------------------------------------------------
+world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
+	const { player, block, itemStack, dimension } = eventData;
+	if (
+		player.getGameMode() !== "Survival" ||
+		itemStack?.typeId === "minecraft:shears"
+	)
+		return;
+	let doSpawn = undefined;
+	const enchantable = itemStack?.getComponent("minecraft:enchantable");
+	const hasSilkTouch = enchantable?.hasEnchantment("minecraft:silk_touch");
+	const hasFortune = enchantable?.hasEnchantment("minecraft:fortune");
+
+	// ------------------------------------------
+	// Fortune level (0–3)
+	// ------------------------------------------
+	let fortuneLevel = 0;
+	if (hasFortune) {
+		const fortune = enchantable.getEnchantment("minecraft:fortune");
+		fortuneLevel = Math.min(fortune?.level ?? 0, 3);
+	}
+
+	// ------------------------------------------
+	// Flowering azalea (Fortune-scaled)
+	// ------------------------------------------
+	// REFACTOR TO BE REUSABLE WITH MORE BLOCKS
+	if (block.typeId === "minecraft:azalea_leaves_flowered" && !hasSilkTouch) {
+		const dropChance = 0.01 * (1 + fortuneLevel);
+		const dropRoll = Math.random();
+		debugMsg(`Chance: ${dropChance}\nRoll: ${dropRoll}`);
+		if (dropRoll < dropChance) {
+			doSpawn = "minecraft:spore_blossom";
+			debugMsg(`Spore Blossom Dropped`);
+		}
+	}
+
+	// ------------------------------------------
+	// Budding amethyst (Silk Touch only)
+	// ------------------------------------------
+	// REFACTOR TO BE REUSABLE WITH MORE BLOCKS
+	if (
+		!doSpawn &&
+		block.typeId === "minecraft:budding_amethyst" &&
+		itemStack &&
+		hasSilkTouch
+	) {
+		const isValidPickaxe =
+			itemStack.typeId === "minecraft:copper_pickaxe" ||
+			itemStack.typeId === "minecraft:iron_pickaxe" ||
+			itemStack.typeId === "minecraft:diamond_pickaxe" ||
+			itemStack.typeId === "minecraft:netherite_pickaxe";
+		if (isValidPickaxe) {
+			doSpawn = "minecraft:budding_amethyst";
+			debugMsg(`Budding Amethyst Dropped`);
+		}
+	}
+	if (!doSpawn) return;
+	const dropBlock = new ItemStack(doSpawn, 1);
+	system.run(() => {
+		player.dimension.spawnItem(dropBlock, {
+			x: block.location.x + 0.5,
+			y: block.location.y + 0.5,
+			z: block.location.z + 0.5,
+		});
+	});
+});
+
+// --------------------------------------------------
+// After Item Use Hook for Renewable Deepslate
+// --------------------------------------------------
+world.afterEvents.itemUse.subscribe((eventData) => {
+	const { source, itemStack } = eventData;
+	if (
+		source.typeId !== "minecraft:player" ||
+		itemStack.typeId !== "minecraft:splash_potion" ||
+		itemStack.localizationKey !== "%potion.thick.splash.name"
+	)
+		return;
+	source.addTag("kado:threwThickPotion");
+	debugMsg(`${source.name} threw a Thick Splash Potion`);
+});
+
+// --------------------------------------------------
+// After Entity Spawn Hook for Renewable Deepslate
+// --------------------------------------------------
+world.afterEvents.entitySpawn.subscribe((eventData) => {
+	const { entity, cause } = eventData;
+	if (entity.typeId !== "minecraft:splash_potion") return;
+	const source = entity.getComponent("minecraft:projectile")?.owner;
+	if (
+		source?.typeId !== "minecraft:player" ||
+		!source?.hasTag("kado:threwThickPotion")
+	)
+		return;
+	entity.addTag("kado:isThickPotion");
+	debugMsg(`Marked splash potion ${entity.id} as Thick Potion`);
+});
+
+// --------------------------------------------------
+// After Projectile Hit Block Hook for Renewable Deepslate
+// --------------------------------------------------
+world.afterEvents.projectileHitBlock.subscribe((eventData) => {
+	const { dimension, location, projectile, source, hitVector } = eventData;
+	const { face, block, faceLocation } = eventData.getBlockHit();
+	if (
+		projectile.typeId !== "minecraft:splash_potion" ||
+		!source.hasTag("kado:threwThickPotion")
+	)
+		return;
+	source.removeTag("kado:threwThickPotion");
+	debugMsg(`Potion hit face: "${face}" at ${coordsString(location)}`);
+	let effectCenter;
+	switch (face) {
+		case "North": {
+			effectCenter = {
+				x: Math.floor(location.x) + 0.5,
+				y: Math.floor(location.y) + 0.5,
+				z: Math.floor(location.z) - 0.5,
+			};
+			break;
+		}
+		case "West": {
+			effectCenter = {
+				x: Math.floor(location.x) - 0.5,
+				y: Math.floor(location.y) + 0.5,
+				z: Math.floor(location.z) + 0.5,
+			};
+			break;
+		}
+		case "Down": {
+			effectCenter = {
+				x: Math.floor(location.x) + 0.5,
+				y: Math.floor(location.y) - 0.5,
+				z: Math.floor(location.z) + 0.5,
+			};
+			break;
+		}
+		default: {
+			effectCenter = {
+				x: Math.floor(location.x) + 0.5,
+				y: Math.floor(location.y) + 0.5,
+				z: Math.floor(location.z) + 0.5,
+			};
+			break;
+		}
+	}
+	debugMsg(`Effect location calculated to ${coordsString(effectCenter)}.`);
+	const radius = 1.4;
+	const blockHitsVol = new BlockVolume(
+		{
+			x: effectCenter.x + radius,
+			y: effectCenter.y + radius,
+			z: effectCenter.z + radius,
+		},
+		{
+			x: effectCenter.x - radius,
+			y: effectCenter.y - radius,
+			z: effectCenter.z - radius,
+		}
+	);
+	const blockHits = dimension.getBlocks(blockHitsVol, {
+		includeTypes: ["minecraft:stone"],
+	});
+	dimension.fillBlocks(blockHits, "minecraft:deepslate");
+});
+
+// --------------------------------------------------
+// After Dimension Change Hook for Nether Initialization
+// --------------------------------------------------
+world.afterEvents.playerDimensionChange.subscribe((eventData) => {
+	const { player, toDimension, toLocation, fromDimension, fromLocation } =
+		eventData;
+	if (toDimension.id === "minecraft:overworld") {
+		debugMsg(`This world's overworld has already been initialized`);
+		return;
+	} else if (
+		toDimension.id === "minecraft:nether" &&
+		world.getDynamicProperty("kado:nether_unlocked")
+	) {
+		debugMsg(`This world's nether has already been initialized`);
+		return;
+	} else if (toDimension.id === "minecraft:the_end") return;
+	debugMsg(`toLocation: ${coordsString(toLocation)}`);
+	debugMsg(`player.location: ${coordsString(player.location)}`);
+	const origin = { x: toLocation.x, y: toLocation.y + 5, z: toLocation.z };
+	suspendPlayer(
+		player,
+		{ x: origin.x + 0.5, y: origin.y, z: origin.z + 0.99 },
+		10
+	);
+	debugMsg(
+		`Origin Found: ${coordsString(origin)}\n${
+			player.name
+		} awaiting island generation.`
+	);
+	for (const island of netherIslands) generateIsland(island, origin);
+	world.setDynamicProperty("kado:nether_unlocked", true);
+	debugMsg(
+		`Dynamic Property: "kado:nether_unlocked" - ${world.getDynamicProperty(
+			"kado:nether_unlocked"
+		)}`
+	);
+});
+
+// --------------------------------------------------
+// After Player Leave Hook to update Players Cache Map
+// --------------------------------------------------
+world.afterEvents.playerLeave.subscribe((eventData) => {
+	const { playerId, playerName } = eventData;
+
+	if (players.delete(playerId)) {
+		debugMsg(`${playerName} left. Registry size: ${players.size}`);
+	}
 });
