@@ -6,19 +6,19 @@
 		},
 		"places_feature": "kado:overworld_block_filter",
 		"distribution": {
-			"iterations": 98304,
+			"iterations": 100000,
 			"scatter_chance": 100,
 			"x": {
-				"distribution": "fixed_grid",
-				"extent": [0, 15]
-			},
-			"z": {
 				"distribution": "fixed_grid",
 				"extent": [0, 15]
 			},
 			"y": {
 				"distribution": "fixed_grid",
 				"extent": [-64, 319]
+			},
+			"z": {
+				"distribution": "fixed_grid",
+				"extent": [0, 15]
 			}
 		}
 	}

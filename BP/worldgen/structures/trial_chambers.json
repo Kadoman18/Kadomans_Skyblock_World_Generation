@@ -1,0 +1,29 @@
+{
+	"format_version": "1.21.20",
+	"minecraft:jigsaw": {
+		"description": {
+			"identifier": "kado:trial_chambers"
+		},
+		"max_depth": 20,
+		"start_pool": "kado:trial_chambers",
+		"start_height": {
+			"type": "constant",
+			"value": {
+				"absolute": 0
+			}
+		},
+		"step": "underground_structures",
+		"terrain_adaptation": "none",
+		"liquid_settings": "ignore_waterlogging",
+		"dimension_padding": 15,
+		"max_distance_from_center": 50,
+		"pool_aliases": [],
+		"biome_filters": [
+			{
+				"test": "has_biome_tag",
+				"operator": "equals",
+				"value": "overworld"
+			}
+		]
+	}
+}

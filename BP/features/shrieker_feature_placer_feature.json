@@ -1,0 +1,14 @@
+{
+	"format_version": "1.13.0",
+
+	"minecraft:weighted_random_feature": {
+		"description": {
+			"identifier": "kado:shrieker_feature_placer_feature"
+		},
+
+		"features": [
+			["kado:shrieker_feature", 1],
+			["kado:overworld_block_filter", 4999]
+		]
+	}
+}

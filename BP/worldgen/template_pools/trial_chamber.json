@@ -1,0 +1,18 @@
+{
+	"format_version": "1.21.100",
+	"minecraft:template_pool": {
+		"description": {
+			"identifier": "kado:trial_chambers"
+		},
+		"elements": [
+			{
+				"weight": 1,
+				"element": {
+					"element_type": "minecraft:single_pool_element",
+					"location": "kado/trial_chamber",
+					"projection": "rigid"
+				}
+			}
+		]
+	}
+}

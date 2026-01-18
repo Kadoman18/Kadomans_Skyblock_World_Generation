@@ -1,0 +1,20 @@
+{
+    "format_version": "1.21.20",
+    "minecraft:structure_set": {
+        "description": {
+            "identifier": "minecraft:trial_chambers"
+        },
+        "placement": {
+            "type": "minecraft:random_spread",
+            "salt": 94251327,
+            "separation": 12,
+            "spacing": 34
+        },
+        "structures": [
+            {
+                "structure": "kado:trial_chambers",
+                "weight": 1
+            }
+        ]
+    }
+}
