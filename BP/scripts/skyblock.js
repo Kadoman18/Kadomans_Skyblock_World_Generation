@@ -1,11 +1,4 @@
-import {
-	BlockVolume,
-	ItemStack,
-	Player,
-	system,
-	Vector3,
-	world,
-} from "@minecraft/server";
+import { Block, BlockVolume, Dimension, ItemStack, Player, system, Vector3, world } from "@minecraft/server";
 
 // --------------------------------------------------
 // Coordinate System Reference (Bedrock)
@@ -261,7 +254,8 @@ function debugMsg(message, error = false) {
  * Converts a Vector3 into a readable string.
  *
  * @param {Vector3} coords - Coordinates to stringify.
- * @param {string} type - debug(default): prints with coords labeled, command: prints numbers only with spaces, noSpace: prints numbers one after another, no spaces.
+ * @param {string} type - debug(default): prints with coords labeled, command: prints numbers only with spaces,
+ * noSpace: prints numbers one after another, no spaces, id: prints coords in parentheses with colon separators.
  * @returns {string} Formatted string.
  */
 function coordsString(coords, type = "debug") {
@@ -350,46 +344,36 @@ function randomNum(min, max, inclusive = true, whole = false) {
 // --------------------------------------------------
 
 /**
- * Polls until a chunk at a location is fully loaded,
- * then executes a callback.
- * * Prevents block operations from failing due to unloaded chunks.
+ * Resolves once the chunk containing the given location is loaded.
  *
- * @param {Dimension} dimension - Target dimension.
- * @param {Vector3} location - Location to test.
- * @param {Function} onReady - Callback when chunk is loaded.
- * @param {number} retries - Maximum polling attempts.
- * @param {number} interval - Ticks between attempts.
+ * @param {Dimension} dimension - Dimension to wait for load in.
+ * @param {Vector3} location - Location to wait for load.
+ * @param {number} intervalTicks - Poll interval (defaul: 20, 1 second.)
+ * @param {number} timeoutTicks - Cutoff time in ticks (default: 1200, 1 minute.).
+ * @returns {Promise<void>}
  */
-function waitForChunkLoaded(
-	dimension,
-	location,
-	onReady,
-	retries = 50,
-	interval = 20
-) {
-	let attempts = 0;
-	const handle = system.runInterval(() => {
-		if (dimension.isChunkLoaded(location)) {
-			system.clearRun(handle);
-			debugMsg(`Chunk loaded at ${coordsString(location)}`);
-			onReady();
-			return;
-		}
-		attempts++;
-		debugMsg(
-			`Waiting for chunk load (${attempts}/${retries}) at ${coordsString(
-				location
-			)}`
-		);
-		if (attempts >= retries) {
-			system.clearRun(handle);
-			debugMsg(
-				`Chunk load at ${coordsString(
-					location
-				)} Failed after ${retries} attempts.`
-			);
-		}
-	}, interval);
+// butts=-2(chunky+5buttnut)*overbort/futbutt08dups
+function waitForChunkLoaded(dimension, location, intervalTicks = 20, timeoutTicks = 1200) {
+	return new Promise((resolve, reject) => {
+		let waited = 0;
+
+		const check = system.runInterval(() => {
+			waited += intervalTicks;
+
+			try {
+				const block = dimension.getBlock(location);
+				if (block) {
+					system.clearRun(check);
+					resolve();
+				}
+			} catch {}
+
+			if (waited >= timeoutTicks) {
+				system.clearRun(check);
+				reject(new Error("Chunk load timeout"));
+			}
+		}, intervalTicks);
+	});
 }
 
 // --------------------------------------------------
@@ -421,9 +405,7 @@ function prepareIsland(island) {
  * @param {string} name - Unique ticking area name.
  */
 function createTickingArea(dimension, location, name) {
-	dimension.runCommand(
-		`tickingarea add circle ${coordsString(location, "command")} 2 ${name}`
-	);
+	dimension.runCommand(`tickingarea add circle ${coordsString(location, "command")} 2 ${name}`);
 	debugMsg(`Ticking area "${name}" created at ${coordsString(location)}`);
 }
 
@@ -450,16 +432,12 @@ function applyBlockPermutations(iteration, from, to, dimension) {
 	const permId = iteration.perms.perm;
 	const permValue = iteration.perms.value;
 	// Single-block optimization avoids unnecessary triple loops and prevents edge cases with unloaded neighbors
-	const singleBlock =
-		from.x === to.x && from.y === to.y && from.z === to.z ? from : undefined;
+	const singleBlock = from.x === to.x && from.y === to.y && from.z === to.z ? from : undefined;
 	if (singleBlock) {
 		const block = dimension.getBlock(singleBlock);
 		if (!block) return;
 		block.setPermutation(block.permutation.withState(permId, permValue));
-		debugMsg(
-			`Set permutation ${permId}=${permValue} at ${coordsString(from)}`,
-			false
-		);
+		debugMsg(`Set permutation ${permId}=${permValue} at ${coordsString(from)}`, false);
 		return;
 	}
 	for (let x = from.x; x <= to.x; x++) {
@@ -467,16 +445,14 @@ function applyBlockPermutations(iteration, from, to, dimension) {
 			for (let z = from.z; z <= to.z; z++) {
 				const block = dimension.getBlock({ x, y, z });
 				if (!block) continue;
-				block.setPermutation(
-					block.permutation.withState(permId, permValue)
-				);
+				block.setPermutation(block.permutation.withState(permId, permValue));
 			}
 		}
 	}
 	debugMsg(
-		`Set permutation ${permId}=${permValue} for volume ${coordsString(
-			from
-		)} -> ${coordsString(to)}`
+		`Set permutation ${permId}=${permValue} for volume ${coordsString(from)} -> ${coordsString(
+			to
+		)}`
 	);
 }
 
@@ -484,28 +460,22 @@ function applyBlockPermutations(iteration, from, to, dimension) {
  * Builds all blocks of an island.
  *
  * @param {object} island - Island object.
- * @param {Vector3} originPoint - World origin reference.
+ * @param {Vector3} worldOrigin - World origin reference.
  */
-function buildIslandBlocks(island, originPoint) {
+function buildIslandBlocks(island, worldOrigin) {
 	const dimension = island.dimension;
-	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
+	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
 	debugMsg(
-		`${island.name} origin resolved at ${coordsString(
-			islandOrigin
-		)}\nBuilding Island Now...`
+		`${island.name} origin resolved at ${coordsString(islandOrigin)}\nBuilding Island Now...`
 	);
 	for (const key in island.blocks) {
 		const iteration = island.blocks[key];
 		const from = calculateOffsets(islandOrigin, iteration.offset.from);
 		const to = calculateOffsets(islandOrigin, iteration.offset.to);
-		debugMsg(
-			`Building "${key}" from ${coordsString(from)} to ${coordsString(to)}`,
-			false
-		);
+		debugMsg(`Building "${key}" from ${coordsString(from)} to ${coordsString(to)}`, false);
 		const volume = new BlockVolume(from, to);
 		dimension.fillBlocks(volume, iteration.block);
-		if (iteration.perms)
-			applyBlockPermutations(iteration, from, to, dimension);
+		if (iteration.perms) applyBlockPermutations(iteration, from, to, dimension);
 	}
 }
 
@@ -513,11 +483,11 @@ function buildIslandBlocks(island, originPoint) {
  * Locates a chest on an island and fills it with loot.
  *
  * @param {object} island - Island object with loot.
- * @param {Vector3} originPoint - World origin reference.
+ * @param {Vector3} worldOrigin - World origin reference.
  */
-function fillChest(island, originPoint) {
+function fillChest(island, worldOrigin) {
 	const dimension = island.dimension;
-	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
+	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
 	const chestLoc = calculateOffsets(islandOrigin, island.loot.chestLoc);
 	const chestBlock = dimension.getBlock(chestLoc);
 	if (chestBlock?.typeId === "minecraft:chest") {
@@ -534,18 +504,11 @@ function fillChest(island, originPoint) {
 			}
 		});
 		debugMsg(
-			`${island.name}			Loot Chest found and filled at location: ${coordsString(
-				chestLoc
-			)}`,
+			`${island.name}	Loot Chest found and filled at location: ${coordsString(chestLoc)}`,
 			false
 		);
 	} else {
-		debugMsg(
-			`${island.name} Loot Chest not found at location: ${coordsString(
-				chestLoc
-			)}`,
-			true
-		);
+		debugMsg(`${island.name} Loot Chest not found at location: ${coordsString(chestLoc)}`, true);
 	}
 }
 
@@ -553,11 +516,11 @@ function fillChest(island, originPoint) {
  * Fills chest with loot if defined.
  *
  * @param {object} island - Island object with loot.
- * @param {Vector3} originPoint - World origin reference.
+ * @param {Vector3} worldOrigin - World origin reference.
  */
-function finalizeIslandLoot(island, originPoint) {
+function finalizeIslandLoot(island, worldOrigin) {
 	if (!island.loot) return;
-	fillChest(island, originPoint);
+	fillChest(island, worldOrigin);
 }
 
 /**
@@ -589,16 +552,17 @@ function suspendPlayer(player, location, ticks = 40) {
  * - Cleans up ticking area
  *
  * @param {object} island - Island definition.
- * @param {Vector3} originPoint - World origin reference.
+ * @param {Vector3} worldOrigin - World origin reference.
  */
-function generateIsland(island, originPoint) {
+function generateIsland(island, worldOrigin) {
 	if (!prepareIsland(island)) return;
-	const islandOrigin = calculateOffsets(originPoint, island.origin_offset);
+	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
 	const tickName = `${island.name.replace(/\s+/g, "_").toLowerCase()}`;
 	createTickingArea(island.dimension, islandOrigin, tickName);
-	waitForChunkLoaded(island.dimension, islandOrigin, () => {
-		buildIslandBlocks(island, originPoint);
-		finalizeIslandLoot(island, originPoint);
+	system.run(async () => {
+		await waitForChunkLoaded(island.dimension, islandOrigin);
+		buildIslandBlocks(island, worldOrigin);
+		finalizeIslandLoot(island, worldOrigin);
 		debugMsg(`${island.name} generation complete.`);
 		system.runTimeout(() => {
 			removeTickingArea(island.dimension, tickName);
@@ -610,7 +574,7 @@ function generateIsland(island, originPoint) {
 // Renewable Amethyst Functions
 // --------------------------------------------------
 /**
- * @returns { true | false | undefined }
+ * @returns {boolean|undefined}
  * true  = structure valid
  * false = structure invalid
  * undefined  = cannot evaluate (unloaded chunks)
@@ -665,8 +629,8 @@ function validGeode(dimension, blockLoc) {
  * - Is between 108000 and 144000 ticks (inclusive)
  * - Is always a multiple of the provided step value
  *
- * @param { number } step - Tick step increment(e.g., 20, 100).
- * @returns { number } Randomized delay in ticks.
+ * @param {number} step - Tick step increment(e.g., 20, 100).
+ * @returns {number} Randomized delay in ticks.
 
 */
 function randomBudAmDelay(step = 20) {
@@ -733,9 +697,7 @@ function dispenseVaultLoot(dimension, block, lootRoll) {
 				return;
 			}
 			system.clearRun(ejecting);
-			block.setPermutation(
-				block.permutation.withState("kado:vault_state", "inactive")
-			);
+			block.setPermutation(block.permutation.withState("kado:vault_state", "inactive"));
 			dimension.playSound("vault.deactivate", block.location);
 		}, 20);
 	}, 10);
@@ -769,26 +731,19 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 					world.setDynamicProperty(cooldownId, next);
 					if (next % 600 === 0) {
 						const time = ticksToTime(next);
-						debugMsg(
-							`[${cooldownId}] Cooldown: ${time.minutes}m ${time.seconds}s`,
-							false
-						);
+						debugMsg(`[${cooldownId}] Cooldown: ${time.minutes}m ${time.seconds}s`, false);
 					}
-					block.setPermutation(
-						block.permutation.withState("kado:vault_state", "inactive")
-					);
+					block.setPermutation(block.permutation.withState("kado:vault_state", "inactive"));
 					continue;
 				}
 			}
-			if (block.permutation.getState("kado:vault_state") === "dispensing")
-				return;
+			if (block.permutation.getState("kado:vault_state") === "dispensing") return;
 			let hasEligiblePlayerNearby = false;
 			for (const player of players.values()) {
 				const xDist = player.location.x - blockCenter.x;
 				const yDist = player.location.y - blockCenter.y;
 				const zDist = player.location.z - blockCenter.z;
-				const inRange =
-					xDist ** 2 + yDist ** 2 + zDist ** 2 <= activationDist ** 2;
+				const inRange = xDist ** 2 + yDist ** 2 + zDist ** 2 <= activationDist ** 2;
 				if (!inRange) continue;
 				const vaultKey = makeVaultCooldownId(block, player);
 				const cooldown = world.getDynamicProperty(vaultKey) ?? 0;
@@ -810,12 +765,8 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			) {
 				dimension.spawnParticle(particle, particleLoc);
 			}
-			if (
-				block.permutation.getState("kado:vault_state") !== newState.state
-			) {
-				block.setPermutation(
-					block.permutation.withState("kado:vault_state", newState.state)
-				);
+			if (block.permutation.getState("kado:vault_state") !== newState.state) {
+				block.setPermutation(block.permutation.withState("kado:vault_state", newState.state));
 				dimension.playSound(newState.sound, block.location);
 			}
 		},
@@ -844,9 +795,7 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 		onPlayerInteract(eventData) {
 			const { dimension, player, block, face, faceLocation } = eventData;
 			const inventory = player.getComponent("minecraft:inventory");
-			const mainHand = inventory.container?.getItem(
-				player.selectedSlotIndex
-			);
+			const mainHand = inventory.container?.getItem(player.selectedSlotIndex);
 			const permutation = block.permutation;
 			const vaultType = permutation.getState("kado:vault_type");
 			const cooldownId = makeVaultCooldownId(block, player);
@@ -857,14 +806,12 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			) {
 				const oldType = vaultType;
 				block.setPermutation(
-					permutation.withState(
-						"kado:vault_type",
-						oldType === "normal" ? "ominous" : "normal"
-					)
+					permutation.withState("kado:vault_type", oldType === "normal" ? "ominous" : "normal")
 				);
-				const oldPrefix = `kado:reCusVault-${
-					block.dimension.id
-				}-${oldType}-${coordsString(block.location, "id")}-`;
+				const oldPrefix = `kado:reCusVault-${block.dimension.id}-${oldType}-${coordsString(
+					block.location,
+					"id"
+				)}-`;
 				for (const id of world.getDynamicPropertyIds()) {
 					if (id.startsWith(oldPrefix)) {
 						world.setDynamicProperty(id, undefined);
@@ -884,8 +831,7 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			const keyType = mainHand?.typeId;
 			const valid =
 				(keyType === "minecraft:trial_key" && vaultType === "normal") ||
-				(keyType === "minecraft:ominous_trial_key" &&
-					vaultType === "ominous");
+				(keyType === "minecraft:ominous_trial_key" && vaultType === "ominous");
 			if (!valid) {
 				dimension.playSound("vault.reject_rewarded_player", block.location);
 				return;
@@ -903,13 +849,9 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			const lootTable =
 				vaultType === "normal"
 					? lootManager.getLootTable("chests/trial_chambers/reward")
-					: lootManager.getLootTable(
-							"chests/trial_chambers/reward_ominous"
-					  );
+					: lootManager.getLootTable("chests/trial_chambers/reward_ominous");
 			const lootRoll = lootManager.generateLootFromTable(lootTable);
-			block.setPermutation(
-				permutation.withState("kado:vault_state", "dispensing")
-			);
+			block.setPermutation(permutation.withState("kado:vault_state", "dispensing"));
 			dispenseVaultLoot(dimension, block, lootRoll);
 			system.runTimeout(() => {
 				world.setDynamicProperty(cooldownId, 6000);
@@ -962,10 +904,7 @@ world.afterEvents.worldLoad.subscribe(() => {
 			world.setDynamicProperty(propId, newDelay);
 			if (newDelay % 600 === 0) {
 				const time = ticksToTime(newDelay);
-				debugMsg(
-					`[${propId}] Cooldown: ${time.minutes}m ${time.seconds}s`,
-					false
-				);
+				debugMsg(`[${propId}] Cooldown: ${time.minutes}m ${time.seconds}s`, false);
 			}
 			if (newDelay === 0) {
 				dimension.setBlockType(waterBlockLoc, "minecraft:budding_amethyst");
@@ -1013,11 +952,7 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 		y: 65,
 		z: world.getDefaultSpawnLocation().z,
 	};
-	debugMsg(
-		`Spawn Found: ${coordsString(spawn)}\n${
-			player.name
-		} awaiting island generation.`
-	);
+	debugMsg(`Spawn Found: ${coordsString(spawn)}\n${player.name} awaiting island generation.`);
 	suspendPlayer(player, { x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 });
 	// Thanks Lyvvy <3
 	for (const island of overworldIslands) generateIsland(island, spawn);
@@ -1033,15 +968,8 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 // After Player Interact Hook for Renewable Budding Amethyst
 // --------------------------------------------------
 world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
-	const {
-		player,
-		beforeItemStack,
-		itemStack,
-		block,
-		blockFace,
-		faceLocation,
-		isFirstEvent,
-	} = eventData;
+	const { player, beforeItemStack, itemStack, block, blockFace, faceLocation, isFirstEvent } =
+		eventData;
 	if (
 		player.getGameMode() === "Creative" &&
 		block.typeId === "minecraft:loom" &&
@@ -1131,10 +1059,7 @@ world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
 			itemStack?.typeId === "minecraft:water_bucket" &&
 			player.getGameMode() === "Creative")
 	) {
-		const propId = `kado:budAmWater-${player.dimension.id}-${coordsString(
-			block.location,
-			"id"
-		)}`;
+		const propId = `kado:budAmWater-${player.dimension.id}-${coordsString(block.location, "id")}`;
 		world.setDynamicProperty(propId, undefined);
 		debugMsg(
 			`World Dynamic Property '${propId}' set to ${world.getDynamicProperty(
@@ -1152,11 +1077,7 @@ world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
 // --------------------------------------------------
 world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 	const { player, block, itemStack, dimension } = eventData;
-	if (
-		player.getGameMode() !== "Survival" ||
-		itemStack?.typeId === "minecraft:shears"
-	)
-		return;
+	if (player.getGameMode() !== "Survival" || itemStack?.typeId === "minecraft:shears") return;
 	let doSpawn = undefined;
 	const enchantable = itemStack?.getComponent("minecraft:enchantable");
 	const hasSilkTouch = enchantable?.hasEnchantment("minecraft:silk_touch");
@@ -1189,12 +1110,7 @@ world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 	// Budding amethyst (Silk Touch only)
 	// ------------------------------------------
 	// REFACTOR TO BE REUSABLE WITH MORE BLOCKS
-	if (
-		!doSpawn &&
-		block.typeId === "minecraft:budding_amethyst" &&
-		itemStack &&
-		hasSilkTouch
-	) {
+	if (!doSpawn && block.typeId === "minecraft:budding_amethyst" && itemStack && hasSilkTouch) {
 		const isValidPickaxe =
 			itemStack.typeId === "minecraft:copper_pickaxe" ||
 			itemStack.typeId === "minecraft:iron_pickaxe" ||
@@ -1238,11 +1154,7 @@ world.afterEvents.entitySpawn.subscribe((eventData) => {
 	const { entity, cause } = eventData;
 	if (entity.typeId !== "minecraft:splash_potion") return;
 	const source = entity.getComponent("minecraft:projectile")?.owner;
-	if (
-		source?.typeId !== "minecraft:player" ||
-		!source?.hasTag("kado:threwThickPotion")
-	)
-		return;
+	if (source?.typeId !== "minecraft:player" || !source?.hasTag("kado:threwThickPotion")) return;
 	entity.addTag("kado:isThickPotion");
 	debugMsg(`Marked splash potion ${entity.id} as Thick Potion`);
 });
@@ -1253,10 +1165,7 @@ world.afterEvents.entitySpawn.subscribe((eventData) => {
 world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 	const { dimension, location, projectile, source, hitVector } = eventData;
 	const { face, block, faceLocation } = eventData.getBlockHit();
-	if (
-		projectile.typeId !== "minecraft:splash_potion" ||
-		!source.hasTag("kado:threwThickPotion")
-	)
+	if (projectile.typeId !== "minecraft:splash_potion" || !source.hasTag("kado:threwThickPotion"))
 		return;
 	source.removeTag("kado:threwThickPotion");
 	debugMsg(`Potion hit face: "${face}" at ${coordsString(location)}`);
@@ -1319,8 +1228,7 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 // After Dimension Change Hook for Nether Initialization
 // --------------------------------------------------
 world.afterEvents.playerDimensionChange.subscribe((eventData) => {
-	const { player, toDimension, toLocation, fromDimension, fromLocation } =
-		eventData;
+	const { player, toDimension, toLocation, fromDimension, fromLocation } = eventData;
 	if (toDimension.id === "minecraft:overworld") {
 		debugMsg(`This world's overworld has already been initialized`);
 		return;
@@ -1334,16 +1242,8 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 	debugMsg(`toLocation: ${coordsString(toLocation)}`);
 	debugMsg(`player.location: ${coordsString(player.location)}`);
 	const origin = { x: toLocation.x, y: toLocation.y + 5, z: toLocation.z };
-	suspendPlayer(
-		player,
-		{ x: origin.x + 0.5, y: origin.y, z: origin.z + 0.99 },
-		10
-	);
-	debugMsg(
-		`Origin Found: ${coordsString(origin)}\n${
-			player.name
-		} awaiting island generation.`
-	);
+	suspendPlayer(player, { x: origin.x + 0.5, y: origin.y, z: origin.z + 0.99 }, 10);
+	debugMsg(`Origin Found: ${coordsString(origin)}\n${player.name} awaiting island generation.`);
 	for (const island of netherIslands) generateIsland(island, origin);
 	world.setDynamicProperty("kado:nether_unlocked", true);
 	debugMsg(
