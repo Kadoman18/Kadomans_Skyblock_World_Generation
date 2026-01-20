@@ -667,9 +667,7 @@ function randomBudAmDelay(step = 20) {
  * @returns {string} Dynamic property key.
  */
 function makeVaultCooldownId(block, player) {
-	return `kado:reCusVault-${block.dimension.id}-${block.permutation.getState(
-		"kado:vault_type",
-	)}-${coordsString(block.location, "id")}-${player.name}`;
+	return `kado:vault-${block.permutation.getState("kado:vault_type")}-${coordsString(block.location, "noSpace")}-${player.name}`;
 }
 
 /**
@@ -899,9 +897,9 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 				if (cooldown > 0) {
 					const next = Math.max(cooldown - 10, 0);
 					world.setDynamicProperty(cooldownId, next);
-					if (next % 600 === 0) {
+					if (next % 600 === 0 || cooldown === 6000) {
 						const time = ticksToTime(next);
-						debugMsg(`[${cooldownId}] Cooldown: ${time.minutes}m ${time.seconds}s`, false);
+						debugMsg(`${cooldownId}] Cooldown: ${time.minutes}m ${time.seconds}s`, false);
 					}
 					block.setPermutation(block.permutation.withState("kado:vault_state", "inactive"));
 					continue;
