@@ -804,8 +804,9 @@ function findShriekersInChunk(dimension, chunkX, chunkZ, minY = -58, maxY = 0) {
 /**
  * Ensures only one shrieker exists per chunk.
  * Deletes extras while keeping one shrieker.
- * Uses a dynamic property to track previously kept shriekers.
+ * Logs each deletion with distance to the nearest global shrieker.
  *
+ * @param {Player} player - Player used for sound feedback
  * @param {Dimension} dimension
  * @param {number} chunkX
  * @param {number} chunkZ
@@ -813,6 +814,7 @@ function findShriekersInChunk(dimension, chunkX, chunkZ, minY = -58, maxY = 0) {
 function pruneExtraShriekers(player, dimension, chunkX, chunkZ) {
 	const chunkShriekers = findShriekersInChunk(dimension, chunkX, chunkZ);
 	if (!chunkShriekers.length) return;
+
 	// Load or initialize the global shrieker list
 	let globalShriekers = [];
 	try {
@@ -820,31 +822,41 @@ function pruneExtraShriekers(player, dimension, chunkX, chunkZ) {
 	} catch {
 		globalShriekers = [];
 	}
+
 	const toKeep = [];
 	const toPrune = [];
+
 	for (const shrieker of chunkShriekers) {
 		// Check distance to all previously kept shriekers
-		const tooClose = globalShriekers.some(
-			(globalShrieker) => distanceSquared(globalShrieker, shrieker.location) < 1000 ** 2,
+		const distances = globalShriekers.map((globalShrieker) =>
+			calculateDistance(globalShrieker, shrieker.location),
 		);
-		if (tooClose) {
-			toPrune.push(shrieker);
+		const minDistance = distances.length > 0 ? Math.min(...distances) : Infinity;
+
+		if (minDistance < 1000) {
+			toPrune.push({ block: shrieker, dist: minDistance });
 		} else {
 			toKeep.push(shrieker);
 			globalShriekers.push(shrieker.location);
 		}
 	}
-	// Delete all extras
-	for (const block of toPrune) {
+
+	// Delete all extras and log their distance to nearest kept shrieker
+	for (const { block, dist } of toPrune) {
 		dimension.setBlockType(block.location, "minecraft:air");
-		debugMsg(`Shrieker removed at ${coordsString(block.location)}`);
+		debugMsg(
+			`Shrieker removed at ${coordsString(block.location)} (Distance to nearest kept shrieker: ${dist.toFixed(2)})`,
+		);
 	}
+
 	// Save updated global shrieker list
 	world.setDynamicProperty("kado:shriekersGenerated", JSON.stringify(globalShriekers));
+
+	// Play a sound for kept shriekers
 	if (toKeep.length > 0) {
 		dimension.playSound("power.on.sculk_sensor", player.location);
 		debugMsg(
-			`Shriekers kept: ${toKeep.map((shrieker) => coordsString(shrieker.location)).join(", ")}`,
+			`Shriekers kept: ${toKeep.map((shrieker) => coordsString(shrieker.location)).join(", ")}\nGlobal Shriekers: ${JSON.stringify(globalShriekers)}`,
 		);
 	}
 }
@@ -854,11 +866,11 @@ function pruneExtraShriekers(player, dimension, chunkX, chunkZ) {
  * @param {Vector3} vectorA
  * @param {Vector3} vectorB
  */
-function distanceSquared(vectorA, vectorB) {
+function calculateDistance(vectorA, vectorB) {
 	const distanceX = vectorA.x - vectorB.x;
 	const distanceY = vectorA.y - vectorB.y;
 	const distanceZ = vectorA.z - vectorB.z;
-	return distanceX ** 2 + distanceY ** 2 + distanceZ ** 2;
+	return Math.sqrt(distanceX ** 2 + distanceY ** 2 + distanceZ ** 2);
 }
 
 // --------------------------------------------------
@@ -881,7 +893,7 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			};
 			dimension.spawnParticle("minecraft:basic_smoke_particle", particleLoc);
 			// World-level, per player cooldown ticking
-			for (const player of world.getAllPlayers()) {
+			for (const player of players.values()) {
 				const cooldownId = makeVaultCooldownId(block, player);
 				const cooldown = world.getDynamicProperty(cooldownId) ?? 0;
 				if (cooldown > 0) {
@@ -1055,7 +1067,7 @@ world.afterEvents.worldLoad.subscribe(() => {
 			const playerChunkZ = Math.floor(player.location.z / 16);
 			const newChunk = { X: playerChunkX, Z: playerChunkZ };
 			if (currentChunk === newChunk) continue;
-			const radius = 5; // number of chunks around player to check
+			const radius = 8; // number of chunks around player to check
 			for (let distanceX = -radius; distanceX <= radius; distanceX++) {
 				for (let distanceZ = -radius; distanceZ <= radius; distanceZ++) {
 					const chunkX = playerChunkX + distanceX;
