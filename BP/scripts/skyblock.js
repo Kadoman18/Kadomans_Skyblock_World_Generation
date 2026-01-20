@@ -1,4 +1,13 @@
-import { Block, BlockVolume, Dimension, ItemStack, Player, system, Vector3, world } from "@minecraft/server";
+import {
+	Block,
+	BlockVolume,
+	Dimension,
+	ItemStack,
+	Player,
+	system,
+	Vector3,
+	world,
+} from "@minecraft/server";
 
 // --------------------------------------------------
 // Coordinate System Reference (Bedrock)
@@ -451,8 +460,8 @@ function applyBlockPermutations(iteration, from, to, dimension) {
 	}
 	debugMsg(
 		`Set permutation ${permId}=${permValue} for volume ${coordsString(from)} -> ${coordsString(
-			to
-		)}`
+			to,
+		)}`,
 	);
 }
 
@@ -466,7 +475,7 @@ function buildIslandBlocks(island, worldOrigin) {
 	const dimension = island.dimension;
 	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
 	debugMsg(
-		`${island.name} origin resolved at ${coordsString(islandOrigin)}\nBuilding Island Now...`
+		`${island.name} origin resolved at ${coordsString(islandOrigin)}\nBuilding Island Now...`,
 	);
 	for (const key in island.blocks) {
 		const iteration = island.blocks[key];
@@ -499,13 +508,13 @@ function fillChest(island, worldOrigin) {
 				const iteration = lootTable[loot];
 				chestEntity.container.setItem(
 					iteration.slot,
-					new ItemStack(iteration.item, iteration.amount)
+					new ItemStack(iteration.item, iteration.amount),
 				);
 			}
 		});
 		debugMsg(
 			`${island.name}	Loot Chest found and filled at location: ${coordsString(chestLoc)}`,
-			false
+			false,
 		);
 	} else {
 		debugMsg(`${island.name} Loot Chest not found at location: ${coordsString(chestLoc)}`, true);
@@ -659,7 +668,7 @@ function randomBudAmDelay(step = 20) {
  */
 function makeVaultCooldownId(block, player) {
 	return `kado:reCusVault-${block.dimension.id}-${block.permutation.getState(
-		"kado:vault_type"
+		"kado:vault_type",
 	)}-${coordsString(block.location, "id")}-${player.name}`;
 }
 
@@ -701,6 +710,155 @@ function dispenseVaultLoot(dimension, block, lootRoll) {
 			dimension.playSound("vault.deactivate", block.location);
 		}, 20);
 	}, 10);
+}
+
+// --------------------------------------------------
+// Deep Dark Shrieker Cleanup Utilities
+// --------------------------------------------------
+
+const chunkSamplePoints = [
+	[2, -54, 2],
+	[2, -54, 8],
+	[2, -54, 14],
+	[8, -54, 2],
+	[8, -54, 8],
+	[8, -54, 14],
+	[14, -54, 2],
+	[14, -54, 8],
+	[14, -54, 14],
+	[2, -48, 2],
+	[2, -48, 8],
+	[2, -48, 14],
+	[8, -48, 2],
+	[8, -48, 8],
+	[8, -48, 14],
+	[14, -48, 2],
+	[14, -48, 8],
+	[14, -48, 14],
+	[2, -42, 2],
+	[2, -42, 8],
+	[2, -42, 14],
+	[8, -42, 2],
+	[8, -42, 8],
+	[8, -42, 14],
+	[14, -42, 2],
+	[14, -42, 8],
+	[14, -42, 14],
+	[2, -36, 2],
+	[2, -36, 8],
+	[2, -36, 14],
+	[8, -36, 2],
+	[8, -36, 8],
+	[8, -36, 14],
+	[14, -36, 2],
+	[14, -36, 8],
+	[14, -36, 14],
+];
+
+/**
+ * Checks whether a chunk contains any Deep Dark biome samples.
+ * @param {Dimension} dimension
+ * @param {number} chunkX
+ * @param {number} chunkZ
+ * @returns {boolean}
+ */
+function chunkHasDeepDark(dimension, chunkX, chunkZ) {
+	let deepDark = false;
+	for (const [coordX, coordY, coordZ] of chunkSamplePoints) {
+		const loc = { x: chunkX * 16 + coordX, y: coordY, z: chunkZ * 16 + coordZ };
+		if (dimension.getBiome(loc)?.id === "minecraft:deep_dark") {
+			deepDark = true;
+			break;
+		}
+	}
+	return deepDark;
+}
+
+/**
+ * Finds all sculk shriekers in a chunk.
+ * @param {Dimension} dimension
+ * @param {number} chunkX
+ * @param {number} chunkZ
+ * @param {number} [minY=-58]
+ * @param {number} [maxY=0]
+ * @returns {Block[]}
+ */
+function findShriekersInChunk(dimension, chunkX, chunkZ, minY = -58, maxY = 0) {
+	const shriekers = [];
+	const startX = chunkX * 16;
+	const startZ = chunkZ * 16;
+	for (let x = 0; x < 16; x++) {
+		for (let z = 0; z < 16; z++) {
+			for (let y = minY; y <= maxY; y++) {
+				const block = dimension.getBlock({ x: startX + x, y, z: startZ + z });
+				if (!block) continue;
+				if (block.typeId === "minecraft:sculk_shrieker") {
+					shriekers.push(block);
+				}
+			}
+		}
+	}
+	return shriekers;
+}
+
+/**
+ * Ensures only one shrieker exists per chunk.
+ * Deletes extras while keeping one shrieker.
+ * Uses a dynamic property to track previously kept shriekers.
+ *
+ * @param {Dimension} dimension
+ * @param {number} chunkX
+ * @param {number} chunkZ
+ */
+function pruneExtraShriekers(player, dimension, chunkX, chunkZ) {
+	const chunkShriekers = findShriekersInChunk(dimension, chunkX, chunkZ);
+	if (!chunkShriekers.length) return;
+	// Load or initialize the global shrieker list
+	let globalShriekers = [];
+	try {
+		globalShriekers = JSON.parse(world.getDynamicProperty("kado:shriekersGenerated")) || [];
+	} catch {
+		globalShriekers = [];
+	}
+	const toKeep = [];
+	const toPrune = [];
+	for (const shrieker of chunkShriekers) {
+		// Check distance to all previously kept shriekers
+		const tooClose = globalShriekers.some(
+			(globalShrieker) => distanceSquared(globalShrieker, shrieker.location) < 1000 ** 2,
+		);
+		if (tooClose) {
+			toPrune.push(shrieker);
+		} else {
+			toKeep.push(shrieker);
+			globalShriekers.push(shrieker.location);
+		}
+	}
+	// Delete all extras
+	for (const block of toPrune) {
+		dimension.setBlockType(block.location, "minecraft:air");
+		debugMsg(`Shrieker removed at ${coordsString(block.location)}`);
+	}
+	// Save updated global shrieker list
+	world.setDynamicProperty("kado:shriekersGenerated", JSON.stringify(globalShriekers));
+	if (toKeep.length > 0) {
+		dimension.playSound("power.on.sculk_sensor", player.location);
+		debugMsg(
+			`Shriekers kept: ${toKeep.map((shrieker) => coordsString(shrieker.location)).join(", ")}`,
+		);
+	}
+}
+
+/**
+ * Euclidean distance squared
+ * @param {Vector3} vectorA
+ * @param {Vector3} vectorB
+ */
+function distanceSquared(vectorA, vectorB) {
+	const distanceX = vectorA.x - vectorB.x;
+	const distanceY = vectorA.y - vectorB.y;
+	const distanceZ = vectorA.z - vectorB.z;
+	return distanceX ** 2 + distanceY ** 2 + distanceZ ** 2;
 }
 
 // --------------------------------------------------
@@ -775,7 +933,7 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			block.setPermutation(
 				block.permutation
 					.withState("kado:vault_type", "normal")
-					.withState("kado:vault_state", "inactive")
+					.withState("kado:vault_state", "inactive"),
 			);
 		},
 		onPlayerBreak(eventData) {
@@ -784,7 +942,7 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 				block.dimension.id
 			}-${brokenBlockPermutation.getState("kado:vault_type")}-${coordsString(
 				block.location,
-				"id"
+				"id",
 			)}-`;
 			for (const cooldownId of world.getDynamicPropertyIds()) {
 				if (cooldownId.startsWith(cooldownPrefix)) {
@@ -806,11 +964,14 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			) {
 				const oldType = vaultType;
 				block.setPermutation(
-					permutation.withState("kado:vault_type", oldType === "normal" ? "ominous" : "normal")
+					permutation.withState(
+						"kado:vault_type",
+						oldType === "normal" ? "ominous" : "normal",
+					),
 				);
 				const oldPrefix = `kado:reCusVault-${block.dimension.id}-${oldType}-${coordsString(
 					block.location,
-					"id"
+					"id",
 				)}-`;
 				for (const id of world.getDynamicPropertyIds()) {
 					if (id.startsWith(oldPrefix)) {
@@ -831,7 +992,9 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			const keyType = mainHand?.typeId;
 			const valid =
 				(keyType === "minecraft:trial_key" && vaultType === "normal") ||
-				(keyType === "minecraft:ominous_trial_key" && vaultType === "ominous");
+				(keyType === "minecraft:ominous_trial_key" &&
+					vaultType === "ominous" &&
+					permutation.getState("kado:vault_state") === "active");
 			if (!valid) {
 				dimension.playSound("vault.reject_rewarded_player", block.location);
 				return;
@@ -839,7 +1002,7 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			if (mainHand.amount > 1) {
 				inventory.container.setItem(
 					player.selectedSlotIndex,
-					new ItemStack(keyType, mainHand.amount - 1)
+					new ItemStack(keyType, mainHand.amount - 1),
 				);
 			} else {
 				inventory.container.setItem(player.selectedSlotIndex, undefined);
@@ -853,9 +1016,12 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			const lootRoll = lootManager.generateLootFromTable(lootTable);
 			block.setPermutation(permutation.withState("kado:vault_state", "dispensing"));
 			dispenseVaultLoot(dimension, block, lootRoll);
-			system.runTimeout(() => {
-				world.setDynamicProperty(cooldownId, 6000);
-			}, lootRoll.length * 20 + 15);
+			system.runTimeout(
+				() => {
+					world.setDynamicProperty(cooldownId, 6000);
+				},
+				lootRoll.length * 20 + 15,
+			);
 		},
 	});
 });
@@ -863,64 +1029,105 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 // --------------------------------------------------
 // After World Load Hook for Renewable Budding Amethyst
 // --------------------------------------------------
+
+let currentChunk;
 world.afterEvents.worldLoad.subscribe(() => {
-	for (const player of world.getAllPlayers()) {
-		players.set(player.id, player);
-	}
-	debugMsg(`Initialized player registry with ${players.size} players.`);
+	let initialized = false;
+	const initInterval = system.runInterval(() => {
+		// Wait until at least one player exists
+		const allPlayers = world.getAllPlayers();
+		if (allPlayers.length === 0) return;
+		// Initialize player registry
+		for (const player of allPlayers) {
+			players.set(player.id, player);
+		}
+		console.log(`Initialized player registry with ${players.size} players.`);
+		initialized = true;
+		// Stop retrying
+		system.clearRun(initInterval);
+	}, 20);
 	system.runInterval(() => {
-		const propIds = world.getDynamicPropertyIds();
-		for (const propId of propIds) {
-			if (!propId.startsWith("kado:budAmWater-")) continue;
-			const remaining = world.getDynamicProperty(propId);
-			const waterBlockLoc = parseCoordsFromId(propId);
-			if (!waterBlockLoc) {
-				world.setDynamicProperty(propId, undefined);
-				continue;
+		if (!initialized) return;
+		for (const player of players.values()) {
+			const dimension = player.dimension;
+			if (dimension.id !== "minecraft:overworld") continue;
+			const playerChunkX = Math.floor(player.location.x / 16);
+			const playerChunkZ = Math.floor(player.location.z / 16);
+			const newChunk = { X: playerChunkX, Z: playerChunkZ };
+			if (currentChunk === newChunk) continue;
+			const radius = 5; // number of chunks around player to check
+			for (let distanceX = -radius; distanceX <= radius; distanceX++) {
+				for (let distanceZ = -radius; distanceZ <= radius; distanceZ++) {
+					const chunkX = playerChunkX + distanceX;
+					const chunkZ = playerChunkZ + distanceZ;
+					// Skip already checked chunks
+					const key = `kado:chunkLoaded-(${chunkX}:${chunkZ})`;
+					if (world.getDynamicProperty(key)) continue;
+					if (!dimension.isChunkLoaded({ x: chunkX * 16, y: 0, z: chunkZ * 16 })) continue;
+					if (chunkHasDeepDark(dimension, chunkX, chunkZ)) {
+						debugMsg(`Chunk: (${chunkX}:${chunkZ}) contained a deep dark biome.`);
+						pruneExtraShriekers(player, dimension, chunkX, chunkZ);
+					}
+					world.setDynamicProperty(key, true);
+				}
 			}
-			const dimension = world.getDimension(propId.split("-")[1]);
-			if (!dimension) continue;
-			const block = dimension.getBlock(waterBlockLoc);
-			if (!block) continue;
-			// Water removed -> forget
-			if (block.typeId !== "minecraft:water") {
-				world.setDynamicProperty(propId, undefined);
-				continue;
-			}
-			if (!dimension.isChunkLoaded(block.location)) continue;
-			const geodeState = validGeode(dimension, waterBlockLoc);
-			debugMsg(`Geode State: ${geodeState}`);
-			// Some blocks not loaded -> pause (do nothing)
-			if (geodeState === undefined) {
-				continue;
-			}
-			// Structure broken -> reset delay
-			if (geodeState === false) {
-				world.setDynamicProperty(propId, randomBudAmDelay());
-				continue;
-			}
-			// geodeState === true -> countdown
-			const newDelay = Math.max(remaining - 20, 0);
-			world.setDynamicProperty(propId, newDelay);
-			if (newDelay % 600 === 0) {
-				const time = ticksToTime(newDelay);
-				debugMsg(`[${propId}] Cooldown: ${time.minutes}m ${time.seconds}s`, false);
-			}
-			if (newDelay === 0) {
-				dimension.setBlockType(waterBlockLoc, "minecraft:budding_amethyst");
-				world.setDynamicProperty(propId, undefined);
-				debugMsg(
-					`World Dynamic Property '${propId}' set to ${world.getDynamicProperty(
-						propId
-					)} and removed.\nWater at ${coordsString(
-						waterBlockLoc
-					)} converted to Buddding Amethyst.`,
-					false
-				);
-			}
-			continue;
 		}
 	}, 20);
+	system.runTimeout(() => {
+		system.runInterval(() => {
+			const propIds = world.getDynamicPropertyIds();
+			for (const propId of propIds) {
+				if (!propId.startsWith("kado:budAmWater-")) continue;
+				const remaining = world.getDynamicProperty(propId);
+				const waterBlockLoc = parseCoordsFromId(propId);
+				if (!waterBlockLoc) {
+					world.setDynamicProperty(propId, undefined);
+					continue;
+				}
+				const dimension = world.getDimension(propId.split("-")[1]);
+				if (!dimension) continue;
+				const block = dimension.getBlock(waterBlockLoc);
+				if (!block) continue;
+				// Water removed -> forget
+				if (block.typeId !== "minecraft:water") {
+					world.setDynamicProperty(propId, undefined);
+					continue;
+				}
+				if (!dimension.isChunkLoaded(block.location)) continue;
+				const geodeState = validGeode(dimension, waterBlockLoc);
+				debugMsg(`Geode State: ${geodeState}`);
+				// Some blocks not loaded -> pause (do nothing)
+				if (geodeState === undefined) {
+					continue;
+				}
+				// Structure broken -> reset delay
+				if (geodeState === false) {
+					world.setDynamicProperty(propId, randomBudAmDelay());
+					continue;
+				}
+				// geodeState === true -> countdown
+				const newDelay = Math.max(remaining - 20, 0);
+				world.setDynamicProperty(propId, newDelay);
+				if (newDelay % 600 === 0) {
+					const time = ticksToTime(newDelay);
+					debugMsg(`[${propId}] Cooldown: ${time.minutes}m ${time.seconds}s`, false);
+				}
+				if (newDelay === 0) {
+					dimension.setBlockType(waterBlockLoc, "minecraft:budding_amethyst");
+					world.setDynamicProperty(propId, undefined);
+					debugMsg(
+						`World Dynamic Property '${propId}' set to ${world.getDynamicProperty(
+							propId,
+						)} and removed.\nWater at ${coordsString(
+							waterBlockLoc,
+						)} converted to Buddding Amethyst.`,
+						false,
+					);
+				}
+				continue;
+			}
+		}, 20);
+	}, 10);
 });
 
 // --------------------------------------------------
@@ -959,8 +1166,8 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 	world.setDynamicProperty("kado:overworld_unlocked", true);
 	debugMsg(
 		`Dynamic Property: "kado:overworld_unlocked" - ${world.getDynamicProperty(
-			"kado:overworld_unlocked"
-		)}`
+			"kado:overworld_unlocked",
+		)}`,
 	);
 });
 
@@ -997,9 +1204,7 @@ world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
 				itemStack?.typeId === "minecraft:water_bucket") &&
 			player.getGameMode() === "Creative")
 	) {
-		// ------------------------------------------
 		// Water placed
-		// ------------------------------------------
 		let tempBlock;
 		switch (blockFace) {
 			case "Up": {
@@ -1036,21 +1241,18 @@ world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
 		const delay = randomBudAmDelay();
 		const propId = `kado:budAmWater-${player.dimension.id}-${coordsString(
 			placedWaterBlock.location,
-			"id"
+			"id",
 		)}`;
 		world.setDynamicProperty(propId, delay);
 		debugMsg(
 			`World Dynamic Property '${propId}' set to world with a value of ${world.getDynamicProperty(
-				propId
+				propId,
 			)}.`,
-			false
+			false,
 		);
 		return;
 	}
-
-	// ------------------------------------------
 	// Water picked up
-	// ------------------------------------------
 	if (
 		(beforeItemStack?.typeId === "minecraft:bucket" &&
 			itemStack?.typeId === "minecraft:water_bucket" &&
@@ -1063,9 +1265,9 @@ world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
 		world.setDynamicProperty(propId, undefined);
 		debugMsg(
 			`World Dynamic Property '${propId}' set to ${world.getDynamicProperty(
-				propId
+				propId,
 			)} and removed.`,
-			false
+			false,
 		);
 	}
 });
@@ -1082,19 +1284,13 @@ world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 	const enchantable = itemStack?.getComponent("minecraft:enchantable");
 	const hasSilkTouch = enchantable?.hasEnchantment("minecraft:silk_touch");
 	const hasFortune = enchantable?.hasEnchantment("minecraft:fortune");
-
-	// ------------------------------------------
 	// Fortune level (0–3)
-	// ------------------------------------------
 	let fortuneLevel = 0;
 	if (hasFortune) {
 		const fortune = enchantable.getEnchantment("minecraft:fortune");
 		fortuneLevel = Math.min(fortune?.level ?? 0, 3);
 	}
-
-	// ------------------------------------------
 	// Flowering azalea (Fortune-scaled)
-	// ------------------------------------------
 	// REFACTOR TO BE REUSABLE WITH MORE BLOCKS
 	if (block.typeId === "minecraft:azalea_leaves_flowered" && !hasSilkTouch) {
 		const dropChance = 0.01 * (1 + fortuneLevel);
@@ -1105,10 +1301,7 @@ world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 			debugMsg(`Spore Blossom Dropped`);
 		}
 	}
-
-	// ------------------------------------------
 	// Budding amethyst (Silk Touch only)
-	// ------------------------------------------
 	// REFACTOR TO BE REUSABLE WITH MORE BLOCKS
 	if (!doSpawn && block.typeId === "minecraft:budding_amethyst" && itemStack && hasSilkTouch) {
 		const isValidPickaxe =
@@ -1216,7 +1409,7 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 			x: effectCenter.x - radius,
 			y: effectCenter.y - radius,
 			z: effectCenter.z - radius,
-		}
+		},
 	);
 	const blockHits = dimension.getBlocks(blockHitsVol, {
 		includeTypes: ["minecraft:stone"],
@@ -1248,8 +1441,8 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 	world.setDynamicProperty("kado:nether_unlocked", true);
 	debugMsg(
 		`Dynamic Property: "kado:nether_unlocked" - ${world.getDynamicProperty(
-			"kado:nether_unlocked"
-		)}`
+			"kado:nether_unlocked",
+		)}`,
 	);
 });
 
@@ -1258,7 +1451,6 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 // --------------------------------------------------
 world.afterEvents.playerLeave.subscribe((eventData) => {
 	const { playerId, playerName } = eventData;
-
 	if (players.delete(playerId)) {
 		debugMsg(`${playerName} left. Registry size: ${players.size}`);
 	}

@@ -473,7 +473,7 @@
 			"minecraft:tnt",
 			"minecraft:torch",
 			"minecraft:trapdoor",
-			"minecraft:trial_spawner",
+			// "minecraft:trial_spawner",
 			"minecraft:tripwire",
 			"minecraft:tripwire_hook",
 			"minecraft:tube_coral",
