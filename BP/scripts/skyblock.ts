@@ -1,12 +1,27 @@
+
+import { BlockStateSuperset } from "@minecraft/vanilla-data";
 import {
 	Block,
 	BlockVolume,
 	Dimension,
+	EntitySpawnAfterEvent,
 	ItemStack,
+	ItemUseAfterEvent,
+        MemoryTier,
 	Player,
-	system,
+	PlayerBreakBlockBeforeEvent,
+	PlayerDimensionChangeAfterEvent,
+	PlayerInteractWithBlockAfterEvent,
+	PlayerJoinAfterEvent,
+	PlayerSpawnAfterEvent,
+	ProjectileHitBlockAfterEvent,
 	Vector3,
+	system,
 	world,
+        BlockComponentOnPlaceEvent,
+        BlockComponentPlayerBreakEvent,
+        BlockComponentPlayerInteractEvent,
+        BlockComponentTickEvent,
 } from "@minecraft/server";
 
 // --------------------------------------------------
@@ -31,49 +46,95 @@ Northwest: > (-x, -z) - (Back-Right)
 // --------------------------------------------------
 
 // Enables verbose console output through debugMsg()
-const debugging = false;
+const debugging: boolean = false;
 
-/*
-Island schema overview:
+// --------------------------------------------------
+// Type Definitions
+// --------------------------------------------------
 
-{
-	name: string,
-	dimension?: Dimension, // Assigned at runtime
-	origin_offset: Vector3, // Offset from world spawn
-	loot?: {
-		chestLoc: Vector3, // Offset from island origin
-		items: {
-			[key]: {
-				slot: number,
-				item: string,
-				amount: number
-	    		}
-		}
-	},
-	blocks: {
-		[key]: {
-	    		block: string,
-	    		perms?: {
-				perm: string,
-				value: any
-	    		},
-	    		offset: {
-				from: Vector3,
-				to: Vector3
-	    		}
-		}
-    	}
+/**
+ * Represents block permutation configuration
+ */
+interface BlockPerms {
+	perm: string;
+	value: string | number | boolean;
 }
 
-NOTES:
-- All offsets are relative to island.origin_offset
-- from/to order does not matter; BlockVolume normalizes bounds
-*/
+/**
+ * Represents a 3D offset range for block placement
+ */
+interface BlockOffset {
+	from: Vector3;
+	to: Vector3;
+}
+
+/**
+ * Represents a single block definition in an island schema
+ */
+interface IslandBlock {
+	block: string;
+	perms?: BlockPerms;
+	offset: BlockOffset;
+}
+
+/**
+ * Represents a single loot item configuration
+ */
+interface LootItem {
+	slot: number;
+	item: string;
+	amount: number;
+}
+
+/**
+ * Represents loot configuration for an island
+ */
+interface IslandLoot {
+	chestLoc: Vector3;
+	items: Record<string, LootItem>;
+}
+
+/**
+ * Island schema definition
+ *
+ * @property name - Display name of the island
+ * @property dimension - Runtime-assigned dimension reference
+ * @property targetDimension - Target dimension identifier
+ * @property origin_offset - Offset from world spawn
+ * @property loot - Optional loot chest configuration
+ * @property blocks - Block placement definitions
+ *
+ * @remarks
+ * All offsets are relative to island.origin_offset
+ * from/to order does not matter; BlockVolume normalizes bounds
+ */
+interface Island {
+	name: string;
+	dimension?: Dimension;
+	targetDimension: string;
+	origin_offset: Vector3;
+	loot?: IslandLoot;
+	blocks: Record<string, IslandBlock>;
+}
+
+/**
+ * Time breakdown in hours, minutes, and seconds
+ */
+interface TimeBreakdown {
+	hours: number;
+	minutes: number;
+	seconds: number;
+}
+
+/**
+ * Coordinate string formatting types
+ */
+type CoordStringType = "debug" | "command" | "noSpace" | "id";
 
 // --------------------------------------------------
 // Starter Island Definition
 // --------------------------------------------------
-const starterIsland = {
+const starterIsland: Island = {
 	name: "Starter Island",
 	targetDimension: "overworld",
 	origin_offset: { x: 0, y: 0, z: 0 },
@@ -144,7 +205,7 @@ const starterIsland = {
 // --------------------------------------------------
 // Sand Island Definition
 // --------------------------------------------------
-const sandIsland = {
+const sandIsland: Island = {
 	name: "Sand Island",
 	targetDimension: "overworld",
 	origin_offset: { x: 0, y: 0, z: -67 },
@@ -197,7 +258,7 @@ const sandIsland = {
 // --------------------------------------------------
 // Nether Island Definition
 // --------------------------------------------------
-const netherIsland = {
+const netherIsland: Island = {
 	name: "Nether Island",
 	targetDimension: "nether",
 	origin_offset: { x: 0, y: 0, z: 0 },
@@ -236,38 +297,40 @@ const netherIsland = {
 // --------------------------------------------------
 // Island Registries
 // --------------------------------------------------
-const overworldIslands = [starterIsland, sandIsland];
-const netherIslands = [netherIsland];
+const overworldIslands: Island[] = [starterIsland, sandIsland];
+const netherIslands: Island[] = [netherIsland];
 
 // --------------------------------------------------
 // Player Cache
 // --------------------------------------------------
-/** @type {Map<string, Player>} */
-const players = new Map();
+const players: Map<string, Player> = new Map();
 
 // --------------------------------------------------
 // Utility Functions
 // --------------------------------------------------
 
 /**
- * Logs a debug message if the messages value is less than or equal to the debugLevel global value.
+ * Logs a debug message if debugging is enabled or if error flag is set.
  *
- * @param {string} message - Message to log.
- * @param {boolean} error - Displays a console warning, true if error, else false.
+ * @param message - Message to log
+ * @param error - If true, displays a console warning; otherwise respects debug flag
  */
-function debugMsg(message, error = false) {
+function debugMsg(message: string, error: boolean = false): void {
 	error ? console.warn(message) : debugging && console.log(message);
 }
 
 /**
  * Converts a Vector3 into a readable string.
  *
- * @param {Vector3} coords - Coordinates to stringify.
- * @param {string} type - debug(default): prints with coords labeled, command: prints numbers only with spaces,
- * noSpace: prints numbers one after another, no spaces, id: prints coords in parentheses with colon separators.
- * @returns {string} Formatted string.
+ * @param coords - Coordinates to stringify
+ * @param type - Format type:
+ *   - "debug" (default): prints with coords labeled
+ *   - "command": prints numbers only with spaces
+ *   - "noSpace": prints numbers one after another, no spaces
+ *   - "id": prints coords in parentheses with colon separators
+ * @returns Formatted string representation of coordinates
  */
-function coordsString(coords, type = "debug") {
+function coordsString(coords: Vector3, type: CoordStringType = "debug"): string {
 	switch (type) {
 		case "debug":
 			return `(X: ${coords.x}, Y: ${coords.y}, Z: ${coords.z})`;
@@ -285,11 +348,11 @@ function coordsString(coords, type = "debug") {
 /**
  * Applies an offset vector to an origin vector.
  *
- * @param {Vector3} origin - Base coordinates.
- * @param {Vector3} offsets - Offset to apply.
- * @returns {Vector3} New coordinates.
+ * @param origin - Base coordinates
+ * @param offsets - Offset to apply
+ * @returns New coordinates with offset applied
  */
-function calculateOffsets(origin, offsets) {
+function calculateOffsets(origin: Vector3, offsets: Vector3): Vector3 {
 	return {
 		x: origin.x + offsets.x,
 		y: origin.y + offsets.y,
@@ -300,10 +363,10 @@ function calculateOffsets(origin, offsets) {
 /**
  * Converts Minecraft ticks to real-world hours, minutes, and seconds.
  *
- * @param {number} ticks - Number of game ticks.
- * @returns {object} {hours, minutes, seconds}
+ * @param ticks - Number of game ticks (20 ticks = 1 second)
+ * @returns Time breakdown object containing hours, minutes, and seconds
  */
-function ticksToTime(ticks) {
+function ticksToTime(ticks: number): TimeBreakdown {
 	const totalSeconds = Math.floor(ticks / 20);
 	const hours = Math.floor(totalSeconds / 3600);
 	const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -313,16 +376,21 @@ function ticksToTime(ticks) {
 
 /**
  * Extracts block coordinates from a dynamic property identifier.
- * * Expected coordinate format inside the id:
- *   (X:Y:Z)
- * * Example:
- *   kado:budAmWater-minecraft:overworld-(1:64:2)
  *
- * @param {string} id - Dynamic property identifier.
- * @returns {Vector3} Parsed coordinates or undefined if invalid.
-
-*/
-function parseCoordsFromId(id) {
+ * Expected coordinate format inside the id: (X:Y:Z)
+ *
+ * @example
+ * ```typescript
+ * // Example ID format:
+ * // kado:budAmWater-minecraft:overworld-(1:64:2)
+ * const coords = parseCoordsFromId("kado:budAmWater-minecraft:overworld-(1:64:2)");
+ * // Returns: { x: 1, y: 64, z: 2 }
+ * ```
+ *
+ * @param id - Dynamic property identifier
+ * @returns Parsed coordinates or undefined if invalid format
+ */
+function parseCoordsFromId(id: string): Vector3 | undefined {
 	const match = id.match(/\((-?\d+):(-?\d+):(-?\d+)\)/);
 	if (!match) return undefined;
 	return {
@@ -335,13 +403,13 @@ function parseCoordsFromId(id) {
 /**
  * Returns a random floating-point number within a range.
  *
- * @param {number} min - Minimum value.
- * @param {number} max - Maximum value.
- * @param {boolean} inclusive - True for inclusive max, false for exclusive.
- * @param {boolean} whole - True for whole number output, false for floats.
- * @returns {number} Random number between min and max.
+ * @param min - Minimum value (inclusive)
+ * @param max - Maximum value
+ * @param inclusive - If true, max is inclusive; if false, max is exclusive
+ * @param whole - If true, returns whole number; if false, returns float
+ * @returns Random number between min and max
  */
-function randomNum(min, max, inclusive = true, whole = false) {
+function randomNum(min: number, max: number, inclusive: boolean = true, whole: boolean = false): number {
 	const val = inclusive
 		? Math.random() * (max - min + 1) + min
 		: Math.random() * (max - min) + min;
@@ -355,14 +423,20 @@ function randomNum(min, max, inclusive = true, whole = false) {
 /**
  * Resolves once the chunk containing the given location is loaded.
  *
- * @param {Dimension} dimension - Dimension to wait for load in.
- * @param {Vector3} location - Location to wait for load.
- * @param {number} intervalTicks - Poll interval (defaul: 20, 1 second.)
- * @param {number} timeoutTicks - Cutoff time in ticks (default: 1200, 1 minute.).
- * @returns {Promise<void>}
+ * @param dimension - Dimension to wait for load in
+ * @param location - Location to wait for load
+ * @param intervalTicks - Poll interval in ticks (default: 20, 1 second)
+ * @param timeoutTicks - Cutoff time in ticks (default: 1200, 1 minute)
+ * @returns Promise that resolves when chunk is loaded or rejects on timeout
+ * @throws Error if chunk fails to load within timeout period
  */
 // butts=-2(chunky+5buttnut)*overbort/futbutt08dups
-function waitForChunkLoaded(dimension, location, intervalTicks = 20, timeoutTicks = 1200) {
+function waitForChunkLoaded(
+	dimension: Dimension,
+	location: Vector3,
+	intervalTicks: number = 20,
+	timeoutTicks: number = 1200
+): Promise<void> {
 	return new Promise((resolve, reject) => {
 		let waited = 0;
 
@@ -392,10 +466,10 @@ function waitForChunkLoaded(dimension, location, intervalTicks = 20, timeoutTick
 /**
  * Resolves the dimension object for an island.
  *
- * @param {object} island - Island object with targetDimension.
- * @returns {boolean} True if successful, false if failed.
+ * @param island - Island object with targetDimension property
+ * @returns True if successful, false if dimension resolution failed
  */
-function prepareIsland(island) {
+function prepareIsland(island: Island): boolean {
 	try {
 		island.dimension = world.getDimension(island.targetDimension);
 		return true;
@@ -407,13 +481,13 @@ function prepareIsland(island) {
 
 /**
  * Creates a circular ticking area centered at a location.
- * * Ensures blocks remain loaded during asynchronous operations.
+ * Ensures blocks remain loaded during asynchronous operations.
  *
- * @param {Dimension} dimension - Target dimension.
- * @param {Vector3} location - Center point.
- * @param {string} name - Unique ticking area name.
+ * @param dimension - Target dimension
+ * @param location - Center point for ticking area
+ * @param name - Unique ticking area identifier
  */
-function createTickingArea(dimension, location, name) {
+function createTickingArea(dimension: Dimension, location: Vector3, name: string): void {
 	dimension.runCommand(`tickingarea add circle ${coordsString(location, "command")} 2 ${name}`);
 	debugMsg(`Ticking area "${name}" created at ${coordsString(location)}`);
 }
@@ -421,10 +495,10 @@ function createTickingArea(dimension, location, name) {
 /**
  * Removes a previously created ticking area by name.
  *
- * @param {Dimension} dimension - Target dimension.
- * @param {string} name - Ticking area identifier.
+ * @param dimension - Target dimension
+ * @param name - Ticking area identifier to remove
  */
-function removeTickingArea(dimension, name) {
+function removeTickingArea(dimension: Dimension, name: string): void {
 	dimension.runCommand(`tickingarea remove ${name}`);
 	debugMsg(`Ticking area "${name}" removed`);
 }
@@ -432,13 +506,20 @@ function removeTickingArea(dimension, name) {
 /**
  * Applies block permutations efficiently.
  *
- * @param {object} iteration - Block definition with perms.
- * @param {Vector3} from - Volume start.
- * @param {Vector3} to - Volume end.
- * @param {Dimension} dimension - Target dimension.
+ * @param iteration - Block definition with permutation configuration
+ * @param from - Volume start coordinates
+ * @param to - Volume end coordinates
+ * @param dimension - Target dimension
  */
-function applyBlockPermutations(iteration, from, to, dimension) {
-	const permId = iteration.perms.perm;
+function applyBlockPermutations(
+	iteration: IslandBlock,
+	from: Vector3,
+	to: Vector3,
+	dimension: Dimension
+): void {
+	if (!iteration.perms) return;
+
+	const permId = iteration.perms.perm as keyof BlockStateSuperset;
 	const permValue = iteration.perms.value;
 	// Single-block optimization avoids unnecessary triple loops and prevents edge cases with unloaded neighbors
 	const singleBlock = from.x === to.x && from.y === to.y && from.z === to.z ? from : undefined;
@@ -468,11 +549,12 @@ function applyBlockPermutations(iteration, from, to, dimension) {
 /**
  * Builds all blocks of an island.
  *
- * @param {object} island - Island object.
- * @param {Vector3} worldOrigin - World origin reference.
+ * @param island - Island object with block definitions
+ * @param worldOrigin - World origin reference point
  */
-function buildIslandBlocks(island, worldOrigin) {
+function buildIslandBlocks(island: Island, worldOrigin: Vector3): void {
 	const dimension = island.dimension;
+	if (!dimension) return;
 	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
 	debugMsg(
 		`${island.name} origin resolved at ${coordsString(islandOrigin)}\nBuilding Island Now...`,
@@ -491,22 +573,24 @@ function buildIslandBlocks(island, worldOrigin) {
 /**
  * Locates a chest on an island and fills it with loot.
  *
- * @param {object} island - Island object with loot.
- * @param {Vector3} worldOrigin - World origin reference.
+ * @param island - Island object with loot configuration
+ * @param worldOrigin - World origin reference point
  */
-function fillChest(island, worldOrigin) {
+function fillChest(island: Island, worldOrigin: Vector3): void {
 	const dimension = island.dimension;
+	if (!dimension || !island.loot) return;
+
 	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
 	const chestLoc = calculateOffsets(islandOrigin, island.loot.chestLoc);
 	const chestBlock = dimension.getBlock(chestLoc);
 	if (chestBlock?.typeId === "minecraft:chest") {
 		const chestEntity = chestBlock.getComponent("minecraft:inventory");
-		if (!chestEntity) return;
+		if (!chestEntity || chestEntity === undefined || !chestEntity.container) return;
 		const lootTable = island.loot.items;
 		system.run(() => {
 			for (let loot in lootTable) {
 				const iteration = lootTable[loot];
-				chestEntity.container.setItem(
+				chestEntity.container!.setItem(
 					iteration.slot,
 					new ItemStack(iteration.item, iteration.amount),
 				);
@@ -524,23 +608,24 @@ function fillChest(island, worldOrigin) {
 /**
  * Fills chest with loot if defined.
  *
- * @param {object} island - Island object with loot.
- * @param {Vector3} worldOrigin - World origin reference.
+ * @param island - Island object with optional loot configuration
+ * @param worldOrigin - World origin reference point
  */
-function finalizeIslandLoot(island, worldOrigin) {
+function finalizeIslandLoot(island: Island, worldOrigin: Vector3): void {
 	if (!island.loot) return;
 	fillChest(island, worldOrigin);
 }
 
 /**
  * Temporarily prevents player movement by repeatedly teleporting them.
- * Used during island generation to avoid falling before terrain exists.
+ * Used during island generation to avoid player interference
+ * or falling before terrain exists.
  *
- * @param {Player} player - Player to suspend.
- * @param {Vector3} location - Fixed teleport location.
- * @param {number} ticks - Duration in ticks.
+ * @param player - Player to suspend
+ * @param location - Fixed teleport location
+ * @param ticks - Duration in ticks (default: 40)
  */
-function suspendPlayer(player, location, ticks = 40) {
+function suspendPlayer(player: Player, location: Vector3, ticks: number = 40): void {
 	const suspend = system.runInterval(() => {
 		player.tryTeleport(location);
 		debugMsg(`${player.name} Suspended.`);
@@ -552,28 +637,29 @@ function suspendPlayer(player, location, ticks = 40) {
 
 /**
  * Fully generates an island instance.
- * * Steps:
+ *
+ * Steps:
  * - Resolves target dimension
  * - Creates a temporary ticking area
  * - Builds island blocks
  * - Populates loot chests
  * - Cleans up ticking area
  *
- * @param {object} island - Island definition.
- * @param {Vector3} worldOrigin - World origin reference.
+ * @param island - Island definition
+ * @param worldOrigin - World origin reference point
  */
-function generateIsland(island, worldOrigin) {
+function generateIsland(island: Island, worldOrigin: Vector3): void {
 	if (!prepareIsland(island)) return;
 	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
 	const tickName = `${island.name.replace(/\s+/g, "_").toLowerCase()}`;
-	createTickingArea(island.dimension, islandOrigin, tickName);
+	createTickingArea(island.dimension!, islandOrigin, tickName);
 	system.run(async () => {
-		await waitForChunkLoaded(island.dimension, islandOrigin);
+		await waitForChunkLoaded(island.dimension!, islandOrigin);
 		buildIslandBlocks(island, worldOrigin);
 		finalizeIslandLoot(island, worldOrigin);
 		debugMsg(`${island.name} generation complete.`);
 		system.runTimeout(() => {
-			removeTickingArea(island.dimension, tickName);
+			removeTickingArea(island.dimension!, tickName);
 		}, 20);
 	});
 }
@@ -582,12 +668,21 @@ function generateIsland(island, worldOrigin) {
 // Renewable Amethyst Functions
 // --------------------------------------------------
 /**
- * @returns {boolean|undefined}
- * true  = structure valid
- * false = structure invalid
- * undefined  = cannot evaluate (unloaded chunks)
+ * Validates amethyst geode structure at a given location.
+ *
+ * Checks for proper layering:
+ * - Center: target block
+ * - Inner layer: calcite (6 blocks)
+ * - Outer layer: smooth basalt (18 blocks)
+ *
+ * @param dimension - Target dimension
+ * @param blockLoc - Center block location
+ * @returns
+ *   - true: structure valid
+ *   - false: structure invalid
+ *   - undefined: cannot evaluate (unloaded chunks)
  */
-function validGeode(dimension, blockLoc) {
+function validGeode(dimension: Dimension, blockLoc: Vector3): boolean | undefined {
 	const inner = "minecraft:calcite";
 	const outer = "minecraft:smooth_basalt";
 	const center = dimension.getBlock(blockLoc);
@@ -606,23 +701,23 @@ function validGeode(dimension, blockLoc) {
 	}
 	const outerChecks = [
 		center.above(2),
-		center.above().north(),
-		center.above().east(),
-		center.above().south(),
-		center.above().west(),
+		center.above()?.north(),
+		center.above()?.east(),
+		center.above()?.south(),
+		center.above()?.west(),
 		center.north(2),
-		center.north().east(),
+		center.north()?.east(),
 		center.east(2),
-		center.east().south(),
+		center.east()?.south(),
 		center.south(2),
-		center.south().west(),
+		center.south()?.west(),
 		center.west(2),
-		center.west().north(),
+		center.west()?.north(),
 		center.below(2),
-		center.below().north(),
-		center.below().east(),
-		center.below().south(),
-		center.below().west(),
+		center.below()?.north(),
+		center.below()?.east(),
+		center.below()?.south(),
+		center.below()?.west(),
 	];
 	for (const block of outerChecks) {
 		if (block?.typeId === undefined) return undefined;
@@ -633,15 +728,15 @@ function validGeode(dimension, blockLoc) {
 
 /**
  * Generates a randomized delay for budding amethyst conversion.
- * * The returned value:
+ *
+ * The returned value:
  * - Is between 108000 and 144000 ticks (inclusive)
  * - Is always a multiple of the provided step value
  *
- * @param {number} step - Tick step increment(e.g., 20, 100).
- * @returns {number} Randomized delay in ticks.
-
-*/
-function randomBudAmDelay(step = 20) {
+ * @param step - Tick step increment (e.g., 20, 100)
+ * @returns Randomized delay in ticks
+ */
+function randomBudAmDelay(step: number = 20): number {
 	const min = 108000;
 	const max = 144000;
 	return min + Math.round(Math.random() * ((max - min) / step + 1)) * step;
@@ -652,36 +747,39 @@ function randomBudAmDelay(step = 20) {
 // --------------------------------------------------
 /**
  * Generates a unique cooldown identifier for a vault-player pair.
- * * Cooldowns are scoped by:
+ *
+ * Cooldowns are scoped by:
  * - Dimension
  * - Vault type
  * - Vault block location
  * - Player identifier
- * * This allows:
+ *
+ * This allows:
  * - Multiple players to use the same vault independently
  * - One player to interact with multiple vaults concurrently
  *
- * @param {Block} block - Vault block.
- * @param {Player} player - Player interacting with the vault.
- * @returns {string} Dynamic property key.
+ * @param block - Vault block
+ * @param player - Player interacting with the vault
+ * @returns Dynamic property key for cooldown tracking
  */
-function makeVaultCooldownId(block, player) {
-	return `kado:vault-${block.permutation.getState("kado:vault_type")}-${coordsString(block.location, "noSpace")}-${player.name}`;
+function makeVaultCooldownId(block: Block, player: Player): string {
+	return `kado:vault-${block.permutation.getState(vaultBlockType)}-${coordsString(block.location, "noSpace")}-${player.name}`;
 }
 
 /**
  * Sequentially ejects generated vault loot items.
- * * Behavior:
+ *
+ * Behavior:
  * - Opens the vault shutter
  * - Dispenses one item per second
  * - Applies controlled impulse for visual ejection
  * - Returns vault to ACTIVE state after completion
  *
- * @param {Dimension} dimension - Vault Block dimension.
- * @param {Block} block - Vault block.
- * @param {Array<ItemStack>} lootRoll - Generated loot entries.
+ * @param dimension - Vault block dimension
+ * @param block - Vault block
+ * @param lootRoll - Generated loot entries
  */
-function dispenseVaultLoot(dimension, block, lootRoll) {
+function dispenseVaultLoot(dimension: Dimension, block: Block, lootRoll: ItemStack[]): void {
 	dimension.playSound("vault.open_shutter", block.location);
 	system.runTimeout(() => {
 		let iter = 0;
@@ -703,7 +801,7 @@ function dispenseVaultLoot(dimension, block, lootRoll) {
 				return;
 			}
 			system.clearRun(ejecting);
-			block.setPermutation(block.permutation.withState("kado:vault_state", "inactive"));
+			block.setPermutation(block.permutation.withState(vaultBlockState, "inactive"));
 			dimension.playSound("vault.deactivate", block.location);
 		}, 20);
 	}, 10);
@@ -712,15 +810,15 @@ function dispenseVaultLoot(dimension, block, lootRoll) {
 // --------------------------------------------------
 // Ancient City Shrieker Utilities
 // --------------------------------------------------
-
 /**
  * Checks whether a chunk contains any Deep Dark biome samples.
- * @param {Dimension} overworld
- * @param {number} chunkX
- * @param {number} chunkZ
- * @returns {boolean}
+ *
+ * @param overworld - Target dimension
+ * @param chunkX - Chunk X coordinate
+ * @param chunkZ - Chunk Z coordinate
+ * @returns True if chunk contains Deep Dark biome, false otherwise
  */
-function chunkHasDeepDark(overworld, chunkX, chunkZ) {
+function chunkHasDeepDark(overworld: Dimension, chunkX: number, chunkZ: number) {
 	return (
 		overworld.getBiome({ x: chunkX * 16 + 8, y: -48, z: chunkZ * 16 + 8 })?.id ===
 		"minecraft:deep_dark"
@@ -728,12 +826,13 @@ function chunkHasDeepDark(overworld, chunkX, chunkZ) {
 }
 
 /**
- * Finds all sculk shriekers in a chunk.
- * @param {Dimension} dimension
- * @param {number} chunkX
- * @param {number} chunkZ
+ * Finds all sculk shriekers in a chunk and converts target blocks to summonable shriekers.
+ *
+ * @param dimension - Target dimension
+ * @param chunkX - Chunk X coordinate
+ * @param chunkZ - Chunk Z coordinate
  */
-function findTargetBlock(dimension, chunkX, chunkZ) {
+function findTargetBlock(dimension: Dimension, chunkX: number, chunkZ: number): void {
 	const startX = chunkX * 16;
 	const startZ = chunkZ * 16;
 	for (let x = 0; x < 16; x++) {
@@ -742,7 +841,8 @@ function findTargetBlock(dimension, chunkX, chunkZ) {
 			if (!block) continue;
 			if (block.typeId === "minecraft:target") {
 				dimension.setBlockType(block.location, "minecraft:sculk_shrieker");
-				const shrieker = dimension.getBlock(block.location);
+                                const shrieker = dimension.getBlock(block.location);
+                                if (shrieker === undefined) return;
 				shrieker.setPermutation(shrieker.permutation.withState("can_summon", true));
 				debugMsg(
 					`Target at ${coordsString(shrieker.location)} converted into summonable shrieker.`,
@@ -754,11 +854,13 @@ function findTargetBlock(dimension, chunkX, chunkZ) {
 }
 
 /**
- * Euclidean distance squared
- * @param {Vector3} vectorA
- * @param {Vector3} vectorB
+ * Calculates Euclidean distance between two vectors.
+ *
+ * @param vectorA - First position vector
+ * @param vectorB - Second position vector
+ * @returns Distance between the two vectors
  */
-function calculateDistance(vectorA, vectorB) {
+function calculateDistance(vectorA: Vector3, vectorB: Vector3): number {
 	const distanceX = vectorA.x - vectorB.x;
 	const distanceY = vectorA.y - vectorB.y;
 	const distanceZ = vectorA.z - vectorB.z;
@@ -768,9 +870,11 @@ function calculateDistance(vectorA, vectorB) {
 // --------------------------------------------------
 // Before Startup Hook Component Registry for Reusable Custom Vaults
 // --------------------------------------------------
+const vaultBlockState = "kado:vault_state" as keyof BlockStateSuperset;
+const vaultBlockType = "kado:vault_type" as keyof BlockStateSuperset
 system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 	blockComponentRegistry.registerCustomComponent("kado:vault", {
-		onTick(eventData) {
+		onTick(eventData: BlockComponentTickEvent): void {
 			const { block, dimension } = eventData;
 			const activationDist = 3.5;
 			const blockCenter = {
@@ -787,7 +891,7 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			// World-level, per player cooldown ticking
 			for (const player of players.values()) {
 				const cooldownId = makeVaultCooldownId(block, player);
-				const cooldown = world.getDynamicProperty(cooldownId) ?? 0;
+				const cooldown = (world.getDynamicProperty(cooldownId) as number | undefined) ?? 0;
 				if (cooldown > 0) {
 					const next = Math.max(cooldown - 10, 0);
 					world.setDynamicProperty(cooldownId, next);
@@ -795,11 +899,11 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 						const time = ticksToTime(next);
 						debugMsg(`${cooldownId}] Cooldown: ${time.minutes}m ${time.seconds}s`, false);
 					}
-					block.setPermutation(block.permutation.withState("kado:vault_state", "inactive"));
+					block.setPermutation(block.permutation.withState(vaultBlockState, "inactive"));
 					continue;
 				}
 			}
-			if (block.permutation.getState("kado:vault_state") === "dispensing") return;
+			if (block.permutation.getState(vaultBlockState) === "dispensing") return;
 			let hasEligiblePlayerNearby = false;
 			for (const player of players.values()) {
 				const xDist = player.location.x - blockCenter.x;
@@ -808,7 +912,7 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 				const inRange = xDist ** 2 + yDist ** 2 + zDist ** 2 <= activationDist ** 2;
 				if (!inRange) continue;
 				const vaultKey = makeVaultCooldownId(block, player);
-				const cooldown = world.getDynamicProperty(vaultKey) ?? 0;
+				const cooldown = (world.getDynamicProperty(vaultKey) as number | undefined) ?? 0;
 				if (cooldown === 0) {
 					hasEligiblePlayerNearby = true;
 					break;
@@ -818,33 +922,33 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 				? { state: "active", sound: "vault.activate" }
 				: { state: "inactive", sound: "vault.deactivate" };
 			const particle =
-				block.permutation.getState("kado:vault_type") === "normal"
+				block.permutation.getState(vaultBlockType) === "normal"
 					? "minecraft:basic_flame_particle"
 					: "minecraft:blue_flame_particle";
 			if (
-				block.permutation.getState("kado:vault_state") === "active" ||
-				block.permutation.getState("kado:vault_state") === "dispensing"
+				block.permutation.getState(vaultBlockState) === "active" ||
+				block.permutation.getState(vaultBlockState) === "dispensing"
 			) {
 				dimension.spawnParticle(particle, particleLoc);
 			}
-			if (block.permutation.getState("kado:vault_state") !== newState.state) {
-				block.setPermutation(block.permutation.withState("kado:vault_state", newState.state));
+			if (block.permutation.getState(vaultBlockState) !== newState.state) {
+				block.setPermutation(block.permutation.withState(vaultBlockState, newState.state));
 				dimension.playSound(newState.sound, block.location);
 			}
 		},
-		onPlace(eventData) {
-			const { block, previousBlock, dimension } = eventData;
+		onPlace(eventData: BlockComponentOnPlaceEvent): void {
+			const { block } = eventData;
 			block.setPermutation(
 				block.permutation
-					.withState("kado:vault_type", "normal")
-					.withState("kado:vault_state", "inactive"),
+					.withState(vaultBlockType, "normal")
+					.withState(vaultBlockState, "inactive"),
 			);
 		},
-		onPlayerBreak(eventData) {
+		onPlayerBreak(eventData: BlockComponentPlayerBreakEvent): void {
 			const { block, brokenBlockPermutation } = eventData;
 			const cooldownPrefix = `kado:reCusVault-${
 				block.dimension.id
-			}-${brokenBlockPermutation.getState("kado:vault_type")}-${coordsString(
+			}-${brokenBlockPermutation.getState(vaultBlockType)}-${coordsString(
 				block.location,
 				"id",
 			)}-`;
@@ -854,22 +958,23 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 				}
 			}
 		},
-		onPlayerInteract(eventData) {
-			const { dimension, player, block, face, faceLocation } = eventData;
+		onPlayerInteract(eventData: BlockComponentPlayerInteractEvent): void {
+                        const { dimension, player, block } = eventData;
+                        if (player === undefined) return;
 			const inventory = player.getComponent("minecraft:inventory");
-			const mainHand = inventory.container?.getItem(player.selectedSlotIndex);
-			const permutation = block.permutation;
-			const vaultType = permutation.getState("kado:vault_type");
+			const mainHand = inventory?.container?.getItem(player.selectedSlotIndex);
+                        const permutation = block.permutation;
+                        const vaultType = permutation.getState(vaultBlockType)
 			const cooldownId = makeVaultCooldownId(block, player);
 			// Creative Vault Type Toggle
 			if (
-				player.getGameMode() === "Creative" &&
+				player?.getGameMode() === "Creative" &&
 				(!mainHand || mainHand.typeId === "kado:vault")
 			) {
 				const oldType = vaultType;
 				block.setPermutation(
 					permutation.withState(
-						"kado:vault_type",
+						vaultBlockType,
 						oldType === "normal" ? "ominous" : "normal",
 					),
 				);
@@ -886,9 +991,9 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 			}
 			// Survival Interractions
 			if (
-				((world.getDynamicProperty(cooldownId) ?? 0) > 0 &&
-					permutation.getState("kado:vault_state") !== "active") ||
-				player.getGameMode() !== "Survival"
+				(((world.getDynamicProperty(cooldownId) as number | undefined) ?? 0) > 0 &&
+					permutation.getState(vaultBlockState) !== "active") ||
+				player?.getGameMode() !== "Survival"
 			) {
 				dimension.playSound("vault.reject_rewarded_player", block.location);
 				return;
@@ -898,27 +1003,30 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 				(keyType === "minecraft:trial_key" && vaultType === "normal") ||
 				(keyType === "minecraft:ominous_trial_key" &&
 					vaultType === "ominous" &&
-					permutation.getState("kado:vault_state") === "active");
+					permutation.getState(vaultBlockState) === "active");
 			if (!valid) {
 				dimension.playSound("vault.reject_rewarded_player", block.location);
 				return;
 			}
+			if (!mainHand) return;
 			if (mainHand.amount > 1) {
-				inventory.container.setItem(
+				inventory?.container?.setItem(
 					player.selectedSlotIndex,
 					new ItemStack(keyType, mainHand.amount - 1),
 				);
 			} else {
-				inventory.container.setItem(player.selectedSlotIndex, undefined);
+				inventory?.container?.setItem(player.selectedSlotIndex, undefined);
 			}
 			dimension.playSound("vault.insert_item", block.location);
 			const lootManager = world.getLootTableManager();
 			const lootTable =
 				vaultType === "normal"
 					? lootManager.getLootTable("chests/trial_chambers/reward")
-					: lootManager.getLootTable("chests/trial_chambers/reward_ominous");
+                                        : lootManager.getLootTable("chests/trial_chambers/reward_ominous");
+                        if (lootTable === undefined) return;
 			const lootRoll = lootManager.generateLootFromTable(lootTable);
-			block.setPermutation(permutation.withState("kado:vault_state", "dispensing"));
+			block.setPermutation(permutation.withState(vaultBlockState, "dispensing"));
+                        if (lootRoll === undefined) return;
 			dispenseVaultLoot(dimension, block, lootRoll);
 			system.runTimeout(
 				() => {
@@ -933,7 +1041,6 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 // --------------------------------------------------
 // After World Load Hook for Renewable Budding Amethyst
 // --------------------------------------------------
-
 world.afterEvents.worldLoad.subscribe(() => {
 	let initialized = false;
 	const initInterval = system.runInterval(() => {
@@ -949,7 +1056,7 @@ world.afterEvents.worldLoad.subscribe(() => {
 		// Stop retrying
 		system.clearRun(initInterval);
 	}, 20);
-	let currentChunk;
+	let currentChunk: { X: number; Z: number } | undefined;
 	system.runInterval(() => {
 		if (!initialized) return;
 		for (const player of players.values()) {
@@ -983,6 +1090,7 @@ world.afterEvents.worldLoad.subscribe(() => {
 					radius = 25;
 					break;
 				default:
+					radius = 8;
 					break;
 			}
 			for (let distanceX = -radius; distanceX <= radius; distanceX++) {
@@ -993,8 +1101,9 @@ world.afterEvents.worldLoad.subscribe(() => {
 					const key = `kado:chunkLoaded-(${chunkX}:${chunkZ})`;
 					if (world.getDynamicProperty(key)) continue;
 					if (!dimension.isChunkLoaded({ x: chunkX * 16, y: 0, z: chunkZ * 16 })) continue;
-					if (!chunkHasDeepDark) continue;
-					findTargetBlock(dimension, chunkX, chunkZ);
+					if (chunkHasDeepDark(dimension, chunkX, chunkZ)) {
+						findTargetBlock(dimension, chunkX, chunkZ);
+					}
 					world.setDynamicProperty(key, true);
 				}
 			}
@@ -1005,7 +1114,8 @@ world.afterEvents.worldLoad.subscribe(() => {
 			const propIds = world.getDynamicPropertyIds();
 			for (const propId of propIds) {
 				if (!propId.startsWith("kado:budAmWater-")) continue;
-				const remaining = world.getDynamicProperty(propId);
+				const remaining = world.getDynamicProperty(propId) as number | undefined;
+				if (remaining === undefined) continue;
 				const waterBlockLoc = parseCoordsFromId(propId);
 				if (!waterBlockLoc) {
 					world.setDynamicProperty(propId, undefined);
@@ -1060,7 +1170,7 @@ world.afterEvents.worldLoad.subscribe(() => {
 // --------------------------------------------------
 // After Player Join Hook to update Players Cache Map
 // --------------------------------------------------
-world.afterEvents.playerJoin.subscribe((eventData) => {
+world.afterEvents.playerJoin.subscribe((eventData: PlayerJoinAfterEvent) => {
 	const { playerId, playerName } = eventData;
 	// Player object is not available yet — wait 1 tick
 	system.run(() => {
@@ -1075,7 +1185,7 @@ world.afterEvents.playerJoin.subscribe((eventData) => {
 // --------------------------------------------------
 // After Player Spawn Hook for World Initialization
 // --------------------------------------------------
-world.afterEvents.playerSpawn.subscribe((eventData) => {
+world.afterEvents.playerSpawn.subscribe((eventData: PlayerSpawnAfterEvent) => {
 	const { player, initialSpawn } = eventData;
 	if (world.getDynamicProperty("kado:overworld_unlocked")) {
 		debugMsg(`This world's overworld has already been initialized`);
@@ -1101,13 +1211,12 @@ world.afterEvents.playerSpawn.subscribe((eventData) => {
 // --------------------------------------------------
 // After Player Interact Hook for Renewable Budding Amethyst
 // --------------------------------------------------
-world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
-	const { player, beforeItemStack, itemStack, block, blockFace, faceLocation, isFirstEvent } =
-		eventData;
+world.afterEvents.playerInteractWithBlock.subscribe((eventData: PlayerInteractWithBlockAfterEvent) => {
+	const { player, beforeItemStack, itemStack, block, blockFace } = eventData;
 	if (
 		player.getGameMode() === "Creative" &&
 		block.typeId === "minecraft:loom" &&
-		itemStack.typeId === "minecraft:brush"
+		itemStack?.typeId === "minecraft:brush"
 	) {
 		const props = world.getDynamicPropertyIds();
 		for (const prop of props) {
@@ -1132,7 +1241,7 @@ world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
 			player.getGameMode() === "Creative")
 	) {
 		// Water placed
-		let tempBlock;
+		let tempBlock: Block | undefined;
 		switch (blockFace) {
 			case "Up": {
 				tempBlock = block.above();
@@ -1163,7 +1272,7 @@ world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
 				break;
 			}
 		}
-		if (tempBlock.typeId !== "minecraft:water") return;
+		if (!tempBlock || tempBlock.typeId !== "minecraft:water") return;
 		const placedWaterBlock = tempBlock;
 		const delay = randomBudAmDelay();
 		const propId = `kado:budAmWater-${player.dimension.id}-${coordsString(
@@ -1204,16 +1313,17 @@ world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
 // Silk Touch Budding Amethyst
 // Renewable Spore Blossoms
 // --------------------------------------------------
-world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
+world.beforeEvents.playerBreakBlock.subscribe((eventData: PlayerBreakBlockBeforeEvent) => {
 	const { player, block, itemStack, dimension } = eventData;
 	if (player.getGameMode() !== "Survival" || itemStack?.typeId === "minecraft:shears") return;
-	let doSpawn = undefined;
+	let doSpawn: string | undefined = undefined;
 	const enchantable = itemStack?.getComponent("minecraft:enchantable");
 	const hasSilkTouch = enchantable?.hasEnchantment("minecraft:silk_touch");
 	const hasFortune = enchantable?.hasEnchantment("minecraft:fortune");
 	// Fortune level (0–3)
 	let fortuneLevel = 0;
-	if (hasFortune) {
+        if (hasFortune) {
+                if (enchantable === undefined) return;
 		const fortune = enchantable.getEnchantment("minecraft:fortune");
 		fortuneLevel = Math.min(fortune?.level ?? 0, 3);
 	}
@@ -1255,23 +1365,23 @@ world.beforeEvents.playerBreakBlock.subscribe((eventData) => {
 // --------------------------------------------------
 // After Item Use Hook for Renewable Deepslate
 // --------------------------------------------------
-world.afterEvents.itemUse.subscribe((eventData) => {
+world.afterEvents.itemUse.subscribe((eventData: ItemUseAfterEvent) => {
 	const { source, itemStack } = eventData;
 	if (
 		source.typeId !== "minecraft:player" ||
 		itemStack.typeId !== "minecraft:splash_potion" ||
-		itemStack.localizationKey !== "%potion.thick.splash.name"
+		itemStack.nameTag !== "%potion.thick.splash.name"
 	)
 		return;
 	source.addTag("kado:threwThickPotion");
-	debugMsg(`${source.name} threw a Thick Splash Potion`);
+	debugMsg(`${source.nameTag} threw a Thick Splash Potion`);
 });
 
 // --------------------------------------------------
 // After Entity Spawn Hook for Renewable Deepslate
 // --------------------------------------------------
-world.afterEvents.entitySpawn.subscribe((eventData) => {
-	const { entity, cause } = eventData;
+world.afterEvents.entitySpawn.subscribe((eventData: EntitySpawnAfterEvent) => {
+	const { entity } = eventData;
 	if (entity.typeId !== "minecraft:splash_potion") return;
 	const source = entity.getComponent("minecraft:projectile")?.owner;
 	if (source?.typeId !== "minecraft:player" || !source?.hasTag("kado:threwThickPotion")) return;
@@ -1282,14 +1392,15 @@ world.afterEvents.entitySpawn.subscribe((eventData) => {
 // --------------------------------------------------
 // After Projectile Hit Block Hook for Renewable Deepslate
 // --------------------------------------------------
-world.afterEvents.projectileHitBlock.subscribe((eventData) => {
-	const { dimension, location, projectile, source, hitVector } = eventData;
-	const { face, block, faceLocation } = eventData.getBlockHit();
-	if (projectile.typeId !== "minecraft:splash_potion" || !source.hasTag("kado:threwThickPotion"))
+world.afterEvents.projectileHitBlock.subscribe((eventData: ProjectileHitBlockAfterEvent) => {
+	const { dimension, location, projectile, source } = eventData;
+	const blockHit = eventData.getBlockHit();
+	const { face, block } = blockHit;
+	if (projectile.typeId !== "minecraft:splash_potion" || !source?.hasTag("kado:threwThickPotion"))
 		return;
 	source.removeTag("kado:threwThickPotion");
 	debugMsg(`Potion hit face: "${face}" at ${coordsString(location)}`);
-	let effectCenter;
+	let effectCenter: Vector3;
 	switch (face) {
 		case "North": {
 			effectCenter = {
@@ -1347,8 +1458,8 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 // --------------------------------------------------
 // After Dimension Change Hook for Nether Initialization
 // --------------------------------------------------
-world.afterEvents.playerDimensionChange.subscribe((eventData) => {
-	const { player, toDimension, toLocation, fromDimension, fromLocation } = eventData;
+world.afterEvents.playerDimensionChange.subscribe((eventData: PlayerDimensionChangeAfterEvent) => {
+	const { player, toDimension, toLocation } = eventData;
 	if (toDimension.id === "minecraft:overworld") {
 		debugMsg(`This world's overworld has already been initialized`);
 		return;
@@ -1374,11 +1485,11 @@ world.afterEvents.playerDimensionChange.subscribe((eventData) => {
 });
 
 // --------------------------------------------------
-// After Player Leave Hook to update Players Cache Map
+// After Player Leave Hook to update Players Cache
 // --------------------------------------------------
 world.afterEvents.playerLeave.subscribe((eventData) => {
-	const { playerId, playerName } = eventData;
-	if (players.delete(playerId)) {
-		debugMsg(`${playerName} left. Registry size: ${players.size}`);
-	}
+        const { playerId, playerName } = eventData;
+        if (players.delete(playerId)) {
+                debugMsg(`${playerName} left. Registry size: ${players.size}`);
+        }
 });
