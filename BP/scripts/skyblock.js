@@ -711,7 +711,7 @@ function dispenseVaultLoot(dimension, block, lootRoll) {
 }
 
 // --------------------------------------------------
-// Deep Dark Shrieker Cleanup Utilities
+// Ancient City Shrieker Utilities
 // --------------------------------------------------
 
 const chunkSamplePoints = [
@@ -724,33 +724,6 @@ const chunkSamplePoints = [
 	[14, -54, 2],
 	[14, -54, 8],
 	[14, -54, 14],
-	[2, -48, 2],
-	[2, -48, 8],
-	[2, -48, 14],
-	[8, -48, 2],
-	[8, -48, 8],
-	[8, -48, 14],
-	[14, -48, 2],
-	[14, -48, 8],
-	[14, -48, 14],
-	[2, -42, 2],
-	[2, -42, 8],
-	[2, -42, 14],
-	[8, -42, 2],
-	[8, -42, 8],
-	[8, -42, 14],
-	[14, -42, 2],
-	[14, -42, 8],
-	[14, -42, 14],
-	[2, -36, 2],
-	[2, -36, 8],
-	[2, -36, 14],
-	[8, -36, 2],
-	[8, -36, 8],
-	[8, -36, 14],
-	[14, -36, 2],
-	[14, -36, 8],
-	[14, -36, 14],
 ];
 
 /**
@@ -777,85 +750,24 @@ function chunkHasDeepDark(dimension, chunkX, chunkZ) {
  * @param {Dimension} dimension
  * @param {number} chunkX
  * @param {number} chunkZ
- * @param {number} [minY=-58]
- * @param {number} [maxY=0]
- * @returns {Block[]}
  */
-function findShriekersInChunk(dimension, chunkX, chunkZ, minY = -58, maxY = 0) {
-	const shriekers = [];
+function findTargetBlock(dimension, chunkX, chunkZ) {
 	const startX = chunkX * 16;
 	const startZ = chunkZ * 16;
 	for (let x = 0; x < 16; x++) {
 		for (let z = 0; z < 16; z++) {
-			for (let y = minY; y <= maxY; y++) {
-				const block = dimension.getBlock({ x: startX + x, y, z: startZ + z });
-				if (!block) continue;
-				if (block.typeId === "minecraft:sculk_shrieker") {
-					shriekers.push(block);
-				}
+			const block = dimension.getBlock({ x: startX + x, y: -48, z: startZ + z });
+			if (!block) continue;
+			if (block.typeId === "minecraft:target") {
+				dimension.setBlockType(block.location, "minecraft:sculk_shrieker");
+				const shrieker = dimension.getBlock(block.location);
+				shrieker.setPermutation(shrieker.permutation.withState("can_summon", true));
+				debugMsg(
+					`Target at ${coordsString(shrieker.location)} converted into summonable shrieker.`,
+				);
+				break;
 			}
 		}
-	}
-	return shriekers;
-}
-
-/**
- * Ensures only one shrieker exists per chunk.
- * Deletes extras while keeping one shrieker.
- * Logs each deletion with distance to the nearest global shrieker.
- *
- * @param {Player} player - Player used for sound feedback
- * @param {Dimension} dimension
- * @param {number} chunkX
- * @param {number} chunkZ
- */
-function pruneExtraShriekers(player, dimension, chunkX, chunkZ) {
-	const chunkShriekers = findShriekersInChunk(dimension, chunkX, chunkZ);
-	if (!chunkShriekers.length) return;
-
-	// Load or initialize the global shrieker list
-	let globalShriekers = [];
-	try {
-		globalShriekers = JSON.parse(world.getDynamicProperty("kado:shriekersGenerated")) || [];
-	} catch {
-		globalShriekers = [];
-	}
-
-	const toKeep = [];
-	const toPrune = [];
-
-	for (const shrieker of chunkShriekers) {
-		// Check distance to all previously kept shriekers
-		const distances = globalShriekers.map((globalShrieker) =>
-			calculateDistance(globalShrieker, shrieker.location),
-		);
-		const minDistance = distances.length > 0 ? Math.min(...distances) : Infinity;
-
-		if (minDistance < 1000) {
-			toPrune.push({ block: shrieker, dist: minDistance });
-		} else {
-			toKeep.push(shrieker);
-			globalShriekers.push(shrieker.location);
-		}
-	}
-
-	// Delete all extras and log their distance to nearest kept shrieker
-	for (const { block, dist } of toPrune) {
-		dimension.setBlockType(block.location, "minecraft:air");
-		debugMsg(
-			`Shrieker removed at ${coordsString(block.location)} (Distance to nearest kept shrieker: ${dist.toFixed(2)})`,
-		);
-	}
-
-	// Save updated global shrieker list
-	world.setDynamicProperty("kado:shriekersGenerated", JSON.stringify(globalShriekers));
-
-	// Play a sound for kept shriekers
-	if (toKeep.length > 0) {
-		dimension.playSound("power.on.sculk_sensor", player.location);
-		debugMsg(
-			`Shriekers kept: ${toKeep.map((shrieker) => coordsString(shrieker.location)).join(", ")}\nGlobal Shriekers: ${JSON.stringify(globalShriekers)}`,
-		);
 	}
 }
 
@@ -1040,7 +952,6 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 // After World Load Hook for Renewable Budding Amethyst
 // --------------------------------------------------
 
-let currentChunk;
 world.afterEvents.worldLoad.subscribe(() => {
 	let initialized = false;
 	const initInterval = system.runInterval(() => {
@@ -1056,6 +967,7 @@ world.afterEvents.worldLoad.subscribe(() => {
 		// Stop retrying
 		system.clearRun(initInterval);
 	}, 20);
+	let currentChunk;
 	system.runInterval(() => {
 		if (!initialized) return;
 		for (const player of players.values()) {
@@ -1065,7 +977,7 @@ world.afterEvents.worldLoad.subscribe(() => {
 			const playerChunkZ = Math.floor(player.location.z / 16);
 			const newChunk = { X: playerChunkX, Z: playerChunkZ };
 			if (currentChunk === newChunk) continue;
-			const radius = 8; // number of chunks around player to check
+			const radius = 12; // number of chunks around player to check
 			for (let distanceX = -radius; distanceX <= radius; distanceX++) {
 				for (let distanceZ = -radius; distanceZ <= radius; distanceZ++) {
 					const chunkX = playerChunkX + distanceX;
@@ -1075,8 +987,7 @@ world.afterEvents.worldLoad.subscribe(() => {
 					if (world.getDynamicProperty(key)) continue;
 					if (!dimension.isChunkLoaded({ x: chunkX * 16, y: 0, z: chunkZ * 16 })) continue;
 					if (chunkHasDeepDark(dimension, chunkX, chunkZ)) {
-						debugMsg(`Chunk: (${chunkX}:${chunkZ}) contained a deep dark biome.`);
-						pruneExtraShriekers(player, dimension, chunkX, chunkZ);
+						findTargetBlock(dimension, chunkX, chunkZ);
 					}
 					world.setDynamicProperty(key, true);
 				}
