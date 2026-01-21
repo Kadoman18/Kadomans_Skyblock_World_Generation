@@ -3,6 +3,7 @@ import {
 	BlockVolume,
 	Dimension,
 	ItemStack,
+	MemoryTier,
 	Player,
 	system,
 	Vector3,
@@ -31,7 +32,7 @@ Northwest: > (-x, -z) - (Back-Right)
 // --------------------------------------------------
 
 // Enables verbose console output through debugMsg()
-const debugging = false;
+const debugging = true;
 
 /*
 Island schema overview:
@@ -242,8 +243,19 @@ const netherIslands = [netherIsland];
 // --------------------------------------------------
 // Player Cache
 // --------------------------------------------------
-/** @type {Map<string, Player>} */
+
+/** @type {Map<string, PlayerInfo>} */
 const players = new Map();
+
+/**
+ * @typedef {Object} PlayerInfo
+ * @property {Player} player
+ * @property {string} id
+ * @property {string} name
+ * @property {number} memoryTier
+ * @property {number} lastChunkX
+ * @property {number} lastChunkZ
+ */
 
 // --------------------------------------------------
 // Utility Functions
@@ -348,6 +360,22 @@ function randomNum(min, max, inclusive = true, whole = false) {
 	return whole ? Math.floor(val) : val;
 }
 
+/**
+ * Registers a player object to the cache to save on I/O.
+ *
+ * @param {Player} player - Player object to register to cache.
+ */
+function registerPlayer(player) {
+	players.set(player.id, {
+		player,
+		id: player.id,
+		name: player.name,
+		memoryTier: player.clientSystemInfo?.memoryTier ?? MemoryTier.Low,
+		lastChunkX: undefined,
+		lastChunkZ: undefined,
+	});
+}
+
 // --------------------------------------------------
 // Wait for Chunk Loaded
 // --------------------------------------------------
@@ -368,7 +396,6 @@ function waitForChunkLoaded(dimension, location, intervalTicks = 20, timeoutTick
 
 		const check = system.runInterval(() => {
 			waited += intervalTicks;
-
 			try {
 				const block = dimension.getBlock(location);
 				if (block) {
@@ -512,10 +539,7 @@ function fillChest(island, worldOrigin) {
 				);
 			}
 		});
-		debugMsg(
-			`${island.name}	Loot Chest found and filled at location: ${coordsString(chestLoc)}`,
-			false,
-		);
+		debugMsg(`${island.name} Loot Chest found and filled at location: ${coordsString(chestLoc)}`);
 	} else {
 		debugMsg(`${island.name} Loot Chest not found at location: ${coordsString(chestLoc)}`, true);
 	}
@@ -933,7 +957,6 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
 // --------------------------------------------------
 // After World Load Hook for Renewable Budding Amethyst
 // --------------------------------------------------
-
 world.afterEvents.worldLoad.subscribe(() => {
 	let initialized = false;
 	const initInterval = system.runInterval(() => {
@@ -942,48 +965,44 @@ world.afterEvents.worldLoad.subscribe(() => {
 		if (allPlayers.length === 0) return;
 		// Initialize player registry
 		for (const player of allPlayers) {
-			players.set(player.id, player);
+			registerPlayer(player);
 		}
 		console.log(`Initialized player registry with ${players.size} players.`);
 		initialized = true;
 		// Stop retrying
 		system.clearRun(initInterval);
 	}, 20);
-	let currentChunk;
 	system.runInterval(() => {
 		if (!initialized) return;
-		for (const player of players.values()) {
-			const dimension = player.dimension;
-			if (dimension.id !== "minecraft:overworld") continue;
+		for (const info of players.values()) {
+			const player = info.player;
+			const dimension = player?.dimension;
+			if (!dimension) continue;
 			const playerChunkX = Math.floor(player.location.x / 16);
 			const playerChunkZ = Math.floor(player.location.z / 16);
-			const newChunk = { X: playerChunkX, Z: playerChunkZ };
-			if (currentChunk === newChunk) continue;
-			let radius; // number of chunks around player to check
-			const playerMemTier = player.clientSystemInfo.memoryTier;
-			switch (playerMemTier) {
+			// Skip if player hasn’t changed chunks
+			if (info.lastChunkX === playerChunkX && info.lastChunkZ === playerChunkZ) continue;
+			info.lastChunkX = playerChunkX;
+			info.lastChunkZ = playerChunkZ;
+			let radius;
+			switch (info.memoryTier) {
 				case MemoryTier.SuperLow:
-					debugMsg(`Client Total Memory: Under 1.5 GB (Super Low)`);
 					radius = 8;
 					break;
 				case MemoryTier.Low:
-					debugMsg(`Client Total Memory: 1.5 - 2.0 GB (Low)`);
 					radius = 10;
 					break;
 				case MemoryTier.Mid:
-					debugMsg(`Client Total Memory: 2.0 - 4.0 GB (Mid)`);
 					radius = 12;
 					break;
 				case MemoryTier.High:
-					debugMsg(`Client Total Memory: 4.0 - 8.0 GB (High)`);
 					radius = 16;
 					break;
 				case MemoryTier.SuperHigh:
-					debugMsg(`Client Total Memory: Over 8.0 GB (Super High)`);
 					radius = 25;
 					break;
 				default:
-					break;
+					radius = 8;
 			}
 			for (let distanceX = -radius; distanceX <= radius; distanceX++) {
 				for (let distanceZ = -radius; distanceZ <= radius; distanceZ++) {
@@ -1066,8 +1085,7 @@ world.afterEvents.playerJoin.subscribe((eventData) => {
 	system.run(() => {
 		const player = world.getAllPlayers().find((p) => p.id === playerId);
 		if (!player) return;
-
-		players.set(player.id, player);
+		registerPlayer(player);
 		debugMsg(`${playerName} joined. Registry size: ${players.size}`);
 	});
 });
