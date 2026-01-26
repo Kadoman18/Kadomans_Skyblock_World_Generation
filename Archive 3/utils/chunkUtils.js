@@ -1,4 +1,4 @@
-import { BlockVolume, Block, Vector3, VectorXZ, system, Dimension } from "@minecraft/server";
+import { BlockVolume, Block, Vector3, VectorXZ, system } from "@minecraft/server";
 import { coordsString, debugMsg } from "../utils/debugUtils";
 
 /**
@@ -89,9 +89,9 @@ export function iterateBlockVolume(dimension, volume, func) {
 /**
  * Iterates over chunk coordinates in a circular radius around a center chunk.
  *
- * @param {VectorXZ} centerChunk - Center chunk coordinate
+ * @param {VectorXZ} centerChunk - Center chunk X coordinate\
  * @param {number} radius - Circular chunk radius
- * @param {(import("@minecraft/server").VectorXZ) => void} callback - Invoked for each chunk
+ * @param {(VectorXZ) => void} callback - Invoked for each chunk
  */
 export function iterateChunksCircular(centerChunk, radius, callback) {
 	const radiusSquared = radius ** 2;
@@ -151,19 +151,11 @@ export function applyPerm(block, permId, permValue) {
 /**
  * Converts chunk locations into coordinates.
  *
- * @param {import("@minecraft/server").VectorXZ} chunk
- * @param {number} yLevel
+ * @param {VectorXZ} chunk
  * @returns {Vector3}
  */
 export function convertChunkToCoords(chunk, yLevel = 0) {
-	if (!chunk || !Number.isInteger(chunk.x) || !Number.isInteger(chunk.z)) {
-		throw new Error(`Invalid chunk: ${JSON.stringify(chunk)}`);
-	}
-	return {
-		x: chunk.x * 16,
-		y: yLevel,
-		z: chunk.z * 16,
-	};
+	return { x: chunk.x * 16, y: yLevel, z: chunk.z * 16 };
 }
 
 /**
@@ -171,11 +163,12 @@ export function convertChunkToCoords(chunk, yLevel = 0) {
  *
  * @param {Dimension} dimension
  * @param {VectorXZ} chunk
- * @param {import("@minecraft/common").NumberRange} bounds
+ * @param {import("./typedefs").NumberRange} bounds
  * @param {(block: Block) => boolean} predicate
  * @param {(block: Block) => void} func
  * @returns {boolean|undefined}
  */
+
 export function findBlockInChunk(dimension, chunk, bounds, predicate, func = undefined) {
 	const volume = new BlockVolume(
 		{
@@ -195,7 +188,6 @@ export function findBlockInChunk(dimension, chunk, bounds, predicate, func = und
 		return findFirstMatchingBlock(dimension, volume, predicate, func) ? true : false;
 	}
 }
-
 /**
  * Finds the first matching block in a volume and optionally applies a function to it.
  *
@@ -205,6 +197,7 @@ export function findBlockInChunk(dimension, chunk, bounds, predicate, func = und
  * @param {(block: Block) => void} func
  * @returns {boolean} true if a block was found
  */
+
 export function findFirstMatchingBlock(dimension, volume, predicate, func = undefined) {
 	const block = findBlockInVolume(dimension, volume, predicate);
 	if (!block) return false;
@@ -235,50 +228,4 @@ export function sameChunkAsLast(playerInfo, playerChunk) {
 		playerInfo.lastChunk.x === playerChunk.x &&
 		playerInfo.lastChunk.z === playerChunk.z
 	);
-}
-
-/**
- *
- * @param {VectorXZ} chunk
- * @returns {string}
- */
-export function chunksString(chunk) {
-	return `(X: ${chunk.x}, Z: ${chunk.z})`;
-}
-
-/**
- *
- * @param {Dimension} dimension
- * @param {BlockVolume|Vector3|VectorXZ} location
- * @param {string} biome
- * @returns
- */
-export function hasBiome(dimension, location, biome) {
-	// BlockVolume (real class)
-	if (location instanceof BlockVolume) {
-		return findFirstMatchingBlock(
-			dimension,
-			location,
-			(block) => dimension.getBiome(block.location)?.id === biome,
-		);
-	}
-	// Vector3-like { x, y, z }
-	if (
-		location &&
-		typeof location.x === "number" &&
-		typeof location.y === "number" &&
-		typeof location.z === "number"
-	) {
-		return dimension.getBiome(location)?.id === biome;
-	}
-	// VectorXZ-like { x, z }
-	if (location && typeof location.x === "number" && typeof location.z === "number") {
-		return findBlockInChunk(
-			dimension,
-			location,
-			{ min: dimension.heightRange.min, max: dimension.heightRange.max },
-			(block) => dimension.getBiome(block.location)?.id === biome,
-		);
-	}
-	return false;
 }

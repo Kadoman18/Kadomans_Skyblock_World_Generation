@@ -40,7 +40,7 @@ export function processAmethystBuds(initialized) {
 		world.setDynamicProperty(propId, newDelay);
 		if (newDelay % 600 === 0) {
 			const time = ticksToTime(newDelay);
-			debugMsg(`[${propId}] Cooldown: ${time.hours}h ${time.minutes}m ${time.seconds}s`, false);
+			debugMsg(`[${propId}] Cooldown: ${time.minutes}m ${time.seconds}s`, false);
 		}
 		if (newDelay === 0) {
 			dimension.setBlockType(waterBlockLoc, "minecraft:budding_amethyst");

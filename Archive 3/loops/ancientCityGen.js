@@ -1,13 +1,13 @@
 import { world } from "@minecraft/server";
 import { playerInfoMaps } from "../cache/playersCache";
-import { debugMsg } from "../utils/debugUtils";
+import { chunksString, debugMsg } from "../utils/debugUtils";
 import {
-        applyPermToLocation,
-	chunksString,
-	convertChunkToCoords,
-	findBlockInChunk,
 	hasBiome,
+	findBlockInChunk,
 	iterateChunksCircular,
+	convertChunkToCoords,
+	applyPermToLocation,
+	sameChunkAsLast,
 } from "../utils/chunkUtils";
 
 export function ancientCityGen(initialized) {
@@ -15,18 +15,13 @@ export function ancientCityGen(initialized) {
 	for (const playerInfoMap of playerInfoMaps.values()) {
 		const player = playerInfoMap.player;
 		const dimension = player?.dimension;
-		if (!dimension) continue;
+		if (!dimension || dimension.id === "overworld") continue;
 		const playerChunk = {
 			x: Math.floor(player.location.x / 16),
 			z: Math.floor(player.location.z / 16),
 		};
 		// Skip if player hasn’t changed chunks
-		if (
-			playerInfoMap.lastChunk &&
-			playerInfoMap.lastChunk.x === playerChunk.x &&
-			playerInfoMap.lastChunk.z === playerChunk.z
-		)
-			continue;
+		if (sameChunkAsLast(playerInfoMap, playerChunk)) continue;
 		playerInfoMap.lastChunk = playerChunk;
 		debugMsg(`Players chunk is ${chunksString(playerChunk)}`);
 		let radius;

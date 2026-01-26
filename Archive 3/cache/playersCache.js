@@ -1,4 +1,4 @@
-import { MemoryTier, Player, VectorXZ} from "@minecraft/server";
+import { MemoryTier, Player, VectorXZ } from "@minecraft/server";
 
 /** @type {Map<string, PlayerInfo>} */
 export const playerInfoMaps = new Map();
