@@ -58,3 +58,7 @@ export function ticksToTime(ticks) {
 	const seconds = totalSeconds % 60;
 	return { hours, minutes, seconds };
 }
+
+export function typeIdify(item) {
+	return item.typeId.replaceAll("minecraft:", "").replaceAll("_", " ");
+}

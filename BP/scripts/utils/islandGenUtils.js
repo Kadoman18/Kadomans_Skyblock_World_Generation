@@ -1,40 +1,13 @@
-import { world, BlockVolume, system, ItemStack } from "@minecraft/server";
+import { world, BlockVolume, system, ItemStack, Block } from "@minecraft/server";
 import { calculateOffsets } from "../utils/mathUtils";
-import { debugMsg, coordsString } from "../utils/debugUtils";
+import { typeIdify, debugMsg, coordsString } from "../utils/debugUtils";
 import {
+	applyPermToLocation,
 	createTickingArea,
-	waitForChunkLoaded,
 	removeTickingArea,
-	iterateBlockVolume,
+	waitForChunkLoaded,
 } from "../utils/chunkUtils";
 import { getIslands } from "../registry/islandDefs";
-
-// --------------------------------------------------
-// Island Build Functions
-// --------------------------------------------------
-/**
- * Applies block permutations efficiently.
- *
- * @param {object} iteration - Block definition with perms.
- * @param {BlockVolume} volume - Volume start.
- * @param {Dimension} dimension - Target dimension.
- */
-function applyBlockPermutations(iteration, volume, dimension) {
-	if (!iteration.perms) return;
-	const permId = iteration.perms.perm;
-	const permValue = iteration.perms.value;
-	const { to, from } = volume;
-	const singleBlock = from.x === to.x && from.y === to.y && from.z === to.z ? from : undefined;
-	if (singleBlock) {
-		const block = dimension.getBlock(singleBlock);
-		if (!block) return;
-		block.setPermutation(block.permutation.withState(permId, permValue));
-		return;
-	}
-	iterateBlockVolume(dimension, volume, (block) => {
-		block.setPermutation(block.permutation.withState(permId, permValue));
-	});
-}
 
 /**
  * Builds all blocks of an island.
@@ -55,26 +28,65 @@ function buildIslandBlocks(island, worldOrigin) {
 		const volume = new BlockVolume(from, to);
 		dimension.fillBlocks(volume, iteration.block);
 		if (iteration.perms) {
-			applyBlockPermutations(iteration, volume, dimension);
+			applyPermToLocation(dimension, volume, iteration.perms.perm, iteration.perms.value);
 		}
 	}
 }
 
+const containersArray = [
+	"minecraft:barrel",
+	"minecraft:black_shulker_box",
+	"minecraft:blast_furnace",
+	"minecraft:blue_shulker_box",
+	"minecraft:brewing_stand",
+	"minecraft:brown_shulker_box",
+	"minecraft:copper_chest",
+	"minecraft:cyan_shulker_box",
+	"minecraft:decorated_pot",
+	"minecraft:dispenser",
+	"minecraft:dropper",
+	"minecraft:exposed_copper_chest",
+	"minecraft:furnace",
+	"minecraft:gray_shulker_box",
+	"minecraft:green_shulker_box",
+	"minecraft:hopper",
+	"minecraft:light_blue_shulker_box",
+	"minecraft:light_gray_shulker_box",
+	"minecraft:lime_shulker_box",
+	"minecraft:magenta_shulker_box",
+	"minecraft:orange_shulker_box",
+	"minecraft:oxidized_copper_chest",
+	"minecraft:pink_shulker_box",
+	"minecraft:purple_shulker_box",
+	"minecraft:red_shulker_box",
+	"minecraft:smoker",
+	"minecraft:trapped_chest",
+	"minecraft:undyed_shulker_box",
+	"minecraft:waxed_copper_chest",
+	"minecraft:waxed_exposed_copper_chest",
+	"minecraft:waxed_oxidized_copper_chest",
+	"minecraft:waxed_weathered_copper_chest",
+	"minecraft:weathered_copper_chest",
+	"minecraft:white_shulker_box",
+	"minecraft:yellow_shulker_box",
+	"minecraft:chest",
+	"minecraft:crafter",
+];
 /**
  * Locates a chest on an island and fills it with loot.
  *
  * @param {object} island - Island object with loot.
  * @param {Vector3} worldOrigin - World origin reference.
  */
-function fillChest(island, worldOrigin) {
+function fillContainer(island, worldOrigin) {
 	const dimension = world.getDimension(`minecraft:${island.targetDimension}`);
 	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
 	const containerLoc = calculateOffsets(islandOrigin, island.loot.containerLoc);
 	system.run(() => {
 		const container = dimension.getBlock(containerLoc);
-		if (container?.typeId !== "minecraft:chest") {
+		if (!containersArray.includes(container?.typeId)) {
 			debugMsg(
-				`${island.name} Loot Chest not found at location: ${coordsString(containerLoc)}`,
+				`${island.name} Loot container not found at location: ${coordsString(containerLoc)}`,
 				true,
 			);
 			return;
@@ -88,7 +100,7 @@ function fillChest(island, worldOrigin) {
 			);
 		}
 		debugMsg(
-			`${island.name} Loot Chest found and filled at location: ${coordsString(containerLoc)}`,
+			`${island.name} Loot container of type ${typeIdify(container)} found and filled at location: ${coordsString(containerLoc)}`,
 		);
 	});
 }
@@ -101,7 +113,7 @@ function fillChest(island, worldOrigin) {
  */
 function finalizeIslandLoot(island, worldOrigin) {
 	if (!island.loot) return;
-	fillChest(island, worldOrigin);
+	fillContainer(island, worldOrigin);
 }
 /**
  * Temporarily prevents player movement by repeatedly teleporting them.

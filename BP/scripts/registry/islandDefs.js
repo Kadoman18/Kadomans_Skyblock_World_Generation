@@ -19,32 +19,32 @@ Northwest: > (-x, -z) - (Back-Right)
 // --------------------------------------------------
 /*
 {
-    name: string,
-    dimension?: Dimension, // Assigned at runtime
-    origin_offset: Vector3, // Offset from world spawn
-    loot?: {
-        containerLoc: Vector3, // Offset from island origin
-        items: {
-            [key]: {
-                slot: number,
-                item: string,
-                amount: number
+        name: string,
+        targetDimension: string,
+        origin_offset: Vector3, // Offset from world spawn
+        loot?: {
+                containerLoc: Vector3, // Offset from island origin
+                items: [
+                        {
+                        slot: number,
+                        item: string,
+                        amount: number
+                        }
+                ]
+        },
+        blocks: [
+                {
+                        block: string,
+                        perms?: {
+                                perm: string,
+                                value: any
+                        },
+                        offset: {
+                                from: Vector3,
+                                to: Vector3
+                        }
                 }
-        }
-    },
-    blocks: {
-        [key]: {
-                block: string,
-                perms?: {
-                perm: string,
-                value: any
-                },
-                offset: {
-                from: Vector3,
-                to: Vector3
-                }
-        }
-        }
+        ]
 }
 
 NOTES:
@@ -53,7 +53,7 @@ NOTES:
 */
 
 // --------------------------------------------------
-// Starter Island Definition
+// Island Registries
 // --------------------------------------------------
 const overworldIslands = [
 	{
@@ -174,50 +174,44 @@ const overworldIslands = [
 	},
 ];
 
-// --------------------------------------------------
-// Nether Island Definition
-// --------------------------------------------------
-const netherIsland = {
-	name: "Nether Island",
-	targetDimension: "nether",
-	origin_offset: { x: 0, y: 0, z: 0 },
-	blocks: {
-		warped_nylium: {
-			block: "minecraft:warped_nylium",
-			offset: { from: { x: -2, y: -1, z: 2 }, to: { x: -1, y: -1, z: -1 } },
-		},
-		soul_sand1: {
-			block: "minecraft:soul_sand",
-			offset: { from: { x: -1, y: -1, z: 2 }, to: { x: -1, y: -1, z: 2 } },
-		},
-		nether_wart1: {
-			block: "minecraft:nether_wart",
-			offset: { from: { x: -1, y: 0, z: 2 }, to: { x: -1, y: 0, z: 2 } },
-		},
-		crimson_nylium: {
-			block: "minecraft:crimson_nylium",
-			offset: { from: { x: 1, y: -1, z: 2 }, to: { x: 2, y: -1, z: -1 } },
-		},
-		soul_sand2: {
-			block: "minecraft:soul_sand",
-			offset: { from: { x: 1, y: -1, z: -1 }, to: { x: 1, y: -1, z: -1 } },
-		},
-		nether_wart2: {
-			block: "minecraft:nether_wart",
-			offset: { from: { x: 1, y: 0, z: -1 }, to: { x: 1, y: 0, z: -1 } },
-		},
-		netherrack: {
-			block: "minecraft:netherrack",
-			offset: { from: { x: -2, y: -2, z: 2 }, to: { x: 2, y: -3, z: -1 } },
-		},
+const netherIslands = [
+	{
+		name: "Nether Island",
+		targetDimension: "nether",
+		origin_offset: { x: 0, y: 0, z: 0 },
+		blocks: [
+			{
+				block: "minecraft:warped_nylium",
+				offset: { from: { x: -2, y: -1, z: 2 }, to: { x: -1, y: -1, z: -1 } },
+			},
+			{
+				block: "minecraft:soul_sand",
+				offset: { from: { x: -1, y: -1, z: 2 }, to: { x: -1, y: -1, z: 2 } },
+			},
+			{
+				block: "minecraft:nether_wart",
+				offset: { from: { x: -1, y: 0, z: 2 }, to: { x: -1, y: 0, z: 2 } },
+			},
+			{
+				block: "minecraft:crimson_nylium",
+				offset: { from: { x: 1, y: -1, z: 2 }, to: { x: 2, y: -1, z: -1 } },
+			},
+			{
+				block: "minecraft:soul_sand",
+				offset: { from: { x: 1, y: -1, z: -1 }, to: { x: 1, y: -1, z: -1 } },
+			},
+			{
+				block: "minecraft:nether_wart",
+				offset: { from: { x: 1, y: 0, z: -1 }, to: { x: 1, y: 0, z: -1 } },
+			},
+			{
+				block: "minecraft:netherrack",
+				offset: { from: { x: -2, y: -2, z: 2 }, to: { x: 2, y: -3, z: -1 } },
+			},
+		],
 	},
-};
-
-// --------------------------------------------------
-// Island Registries
-// --------------------------------------------------
-const netherIslands = [netherIsland];
-const endIslands = [];
+];
+const endIslands = [{}];
 
 export function getIslands(dimension) {
 	switch (dimension.id) {

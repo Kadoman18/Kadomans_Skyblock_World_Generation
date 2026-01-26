@@ -229,6 +229,7 @@ export function findBlockInVolume(dimension, volume, predicate) {
 	});
 	return found;
 }
+
 export function sameChunkAsLast(playerInfo, playerChunk) {
 	return (
 		playerInfo.lastChunk &&
