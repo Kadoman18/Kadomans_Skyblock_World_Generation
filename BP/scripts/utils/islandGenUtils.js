@@ -1,62 +1,41 @@
 import { world, BlockVolume, system, ItemStack } from "@minecraft/server";
 import { calculateOffsets } from "../utils/mathUtils";
 import { debugMsg, coordsString } from "../utils/debugUtils";
-import { createTickingArea, waitForChunkLoaded, removeTickingArea } from "../utils/chunkUtils";
+import {
+	createTickingArea,
+	waitForChunkLoaded,
+	removeTickingArea,
+	iterateBlockVolume,
+} from "../utils/chunkUtils";
 import { getIslands } from "../registry/islandDefs";
 
 // --------------------------------------------------
 // Island Build Functions
 // --------------------------------------------------
 /**
- * Resolves the dimension object for an island.
- *
- * @param {object} island - Island object with targetDimension.
- * @returns {boolean} True if successful, false if failed.
- */
-function prepareIsland(island) {
-	try {
-		island.dimension = world.getDimension(island.targetDimension);
-		return true;
-	} catch (error) {
-		debugMsg(`Failed to resolve dimension for island: ${island.name}`, true);
-		return false;
-	}
-}
-/**
  * Applies block permutations efficiently.
  *
  * @param {object} iteration - Block definition with perms.
- * @param {Vector3} from - Volume start.
- * @param {Vector3} to - Volume end.
+ * @param {BlockVolume} volume - Volume start.
  * @param {Dimension} dimension - Target dimension.
  */
-function applyBlockPermutations(iteration, from, to, dimension) {
+function applyBlockPermutations(iteration, volume, dimension) {
+	if (!iteration.perms) return;
 	const permId = iteration.perms.perm;
 	const permValue = iteration.perms.value;
-	// Single-block optimization avoids unnecessary triple loops and prevents edge cases with unloaded neighbors
+	const { to, from } = volume;
 	const singleBlock = from.x === to.x && from.y === to.y && from.z === to.z ? from : undefined;
 	if (singleBlock) {
 		const block = dimension.getBlock(singleBlock);
 		if (!block) return;
 		block.setPermutation(block.permutation.withState(permId, permValue));
-		debugMsg(`Set permutation ${permId}=${permValue} at ${coordsString(from)}`, false);
 		return;
 	}
-	for (let x = from.x; x <= to.x; x++) {
-		for (let y = from.y; y <= to.y; y++) {
-			for (let z = from.z; z <= to.z; z++) {
-				const block = dimension.getBlock({ x, y, z });
-				if (!block) continue;
-				block.setPermutation(block.permutation.withState(permId, permValue));
-			}
-		}
-	}
-	debugMsg(
-		`Set permutation ${permId}=${permValue} for volume ${coordsString(from)} -> ${coordsString(
-			to,
-		)}`,
-	);
+	iterateBlockVolume(dimension, volume, (block) => {
+		block.setPermutation(block.permutation.withState(permId, permValue));
+	});
 }
+
 /**
  * Builds all blocks of an island.
  *
@@ -69,16 +48,18 @@ function buildIslandBlocks(island, worldOrigin) {
 	debugMsg(
 		`${island.name} origin resolved at ${coordsString(islandOrigin)}\nBuilding Island Now...`,
 	);
-	for (const key in island.blocks) {
-		const iteration = island.blocks[key];
+	for (const iteration of island.blocks) {
+		const dimension = world.getDimension(island.targetDimension);
 		const from = calculateOffsets(islandOrigin, iteration.offset.from);
 		const to = calculateOffsets(islandOrigin, iteration.offset.to);
-		debugMsg(`Building "${key}" from ${coordsString(from)} to ${coordsString(to)}`, false);
 		const volume = new BlockVolume(from, to);
 		dimension.fillBlocks(volume, iteration.block);
-		if (iteration.perms) applyBlockPermutations(iteration, from, to, dimension);
+		if (iteration.perms) {
+			applyBlockPermutations(iteration, volume, dimension);
+		}
 	}
 }
+
 /**
  * Locates a chest on an island and fills it with loot.
  *
@@ -86,28 +67,32 @@ function buildIslandBlocks(island, worldOrigin) {
  * @param {Vector3} worldOrigin - World origin reference.
  */
 function fillChest(island, worldOrigin) {
-	const dimension = island.dimension;
+	const dimension = world.getDimension(`minecraft:${island.targetDimension}`);
 	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
-	const chestLoc = calculateOffsets(islandOrigin, island.loot.chestLoc);
-	const chestBlock = dimension.getBlock(chestLoc);
-	if (chestBlock?.typeId === "minecraft:chest") {
-		const chestEntity = chestBlock.getComponent("minecraft:inventory");
-		if (!chestEntity) return;
-		const lootTable = island.loot.items;
-		system.run(() => {
-			for (let loot in lootTable) {
-				const iteration = lootTable[loot];
-				chestEntity.container.setItem(
-					iteration.slot,
-					new ItemStack(iteration.item, iteration.amount),
-				);
-			}
-		});
-		debugMsg(`${island.name} Loot Chest found and filled at location: ${coordsString(chestLoc)}`);
-	} else {
-		debugMsg(`${island.name} Loot Chest not found at location: ${coordsString(chestLoc)}`, true);
-	}
+	const containerLoc = calculateOffsets(islandOrigin, island.loot.containerLoc);
+	system.run(() => {
+		const container = dimension.getBlock(containerLoc);
+		if (container?.typeId !== "minecraft:chest") {
+			debugMsg(
+				`${island.name} Loot Chest not found at location: ${coordsString(containerLoc)}`,
+				true,
+			);
+			return;
+		}
+		const inventory = container.getComponent("minecraft:inventory");
+		if (!inventory) return;
+		for (const iteration of island.loot.items) {
+			inventory.container.setItem(
+				iteration.slot,
+				new ItemStack(iteration.item, iteration.amount),
+			);
+		}
+		debugMsg(
+			`${island.name} Loot Chest found and filled at location: ${coordsString(containerLoc)}`,
+		);
+	});
 }
+
 /**
  * Fills chest with loot if defined.
  *
@@ -136,6 +121,7 @@ export function suspendPlayer(player, location, ticks = 40) {
 		system.clearRun(suspend);
 	}, ticks);
 }
+
 /**
  * Fully generates an island instance.
  * * Steps:
@@ -150,17 +136,17 @@ export function suspendPlayer(player, location, ticks = 40) {
  */
 
 export function generateIsland(island, worldOrigin) {
-	if (!prepareIsland(island)) return;
+	const dimension = world.getDimension(`minecraft:${island.targetDimension}`);
 	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
 	const tickName = `${island.name.replace(/\s+/g, "_").toLowerCase()}`;
-	createTickingArea(island.dimension, islandOrigin, tickName);
+	createTickingArea(dimension, islandOrigin, tickName);
 	system.run(async () => {
-		await waitForChunkLoaded(island.dimension, islandOrigin);
+		await waitForChunkLoaded(dimension, islandOrigin);
 		buildIslandBlocks(island, worldOrigin);
 		finalizeIslandLoot(island, worldOrigin);
 		debugMsg(`${island.name} generation complete.`);
 		system.runTimeout(() => {
-			removeTickingArea(island.dimension, tickName);
+			removeTickingArea(dimension, tickName);
 		}, 20);
 	});
 }
@@ -169,22 +155,16 @@ export function makeUnlockKey(dimension) {
 	return `kado:${dimension.id.replaceAll("minecraft:", "")}_unlocked`;
 }
 
-export function dimensionUnlocked(dimension) {
-	return world.getDynamicProperty(makeUnlockKey(dimension));
-}
-
 /**
- * Initializes island generation for a dimension.
+ * Initializes island generation for a player’s current dimension.
  *
- * @param {Dimension} dimension
- * @param {Object} islands
- * @param {Player[]} players
+ * @param {Player} player
  * @returns {boolean}
  */
 export function initializeIslands(player) {
 	const { dimension, location } = player;
 	const unlockKey = makeUnlockKey(player.dimension);
-	if (dimensionUnlocked(dimension)) return;
+	if (world.getDynamicProperty(unlockKey)) return true;
 	const islands = getIslands(player.dimension);
 	if (!islands || islands.length === 0) return false;
 	const origin =

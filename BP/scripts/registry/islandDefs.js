@@ -23,7 +23,7 @@ Northwest: > (-x, -z) - (Back-Right)
     dimension?: Dimension, // Assigned at runtime
     origin_offset: Vector3, // Offset from world spawn
     loot?: {
-        chestLoc: Vector3, // Offset from island origin
+        containerLoc: Vector3, // Offset from island origin
         items: {
             [key]: {
                 slot: number,
@@ -55,126 +55,124 @@ NOTES:
 // --------------------------------------------------
 // Starter Island Definition
 // --------------------------------------------------
-const starterIsland = {
-	name: "Starter Island",
-	targetDimension: "overworld",
-	origin_offset: { x: 0, y: 0, z: 0 },
-	loot: {
-		chestLoc: { x: 0, y: 0, z: 4 },
-		items: {
-			ice: { slot: 11, item: "minecraft:ice", amount: 1 },
-			lava: { slot: 15, item: "minecraft:lava_bucket", amount: 1 },
+const overworldIslands = [
+	{
+		name: "Starter Island",
+		targetDimension: "overworld",
+		origin_offset: { x: 0, y: 0, z: 0 },
+		loot: {
+			containerLoc: { x: 0, y: 0, z: 4 },
+			items: [
+				{ slot: 11, item: "minecraft:ice", amount: 1 },
+				{ slot: 15, item: "minecraft:lava_bucket", amount: 1 },
+			],
 		},
+		blocks: [
+			{
+				block: "minecraft:oak_leaves",
+				offset: { from: { x: -3, y: 6, z: -1 }, to: { x: -5, y: 6, z: -1 } },
+			},
+			{
+				block: "minecraft:oak_leaves",
+				offset: { from: { x: -4, y: 6, z: 0 }, to: { x: -4, y: 6, z: -2 } },
+			},
+			{
+				block: "minecraft:oak_leaves",
+				offset: { from: { x: -3, y: 5, z: 0 }, to: { x: -5, y: 5, z: -2 } },
+			},
+			{
+				block: "minecraft:oak_leaves",
+				offset: { from: { x: -2, y: 4, z: 1 }, to: { x: -6, y: 4, z: -3 } },
+			},
+			{
+				block: "minecraft:oak_leaves",
+				offset: { from: { x: -2, y: 3, z: 0 }, to: { x: -6, y: 3, z: -2 } },
+			},
+			{
+				block: "minecraft:oak_leaves",
+				offset: { from: { x: -3, y: 3, z: 1 }, to: { x: -5, y: 3, z: -3 } },
+			},
+			{
+				block: "minecraft:oak_log",
+				offset: { from: { x: -4, y: 5, z: -1 }, to: { x: -4, y: 0, z: -1 } },
+			},
+			{
+				block: "minecraft:chest",
+				perms: { perm: "minecraft:cardinal_direction", value: "north" },
+				offset: { from: { x: 0, y: 0, z: 4 }, to: { x: 0, y: 0, z: 4 } },
+			},
+			{
+				block: "minecraft:grass",
+				offset: { from: { x: 1, y: -1, z: 4 }, to: { x: -1, y: -1, z: -1 } },
+			},
+			{
+				block: "minecraft:grass",
+				offset: { from: { x: -2, y: -1, z: 1 }, to: { x: -4, y: -1, z: -1 } },
+			},
+			{
+				block: "minecraft:dirt",
+				offset: { from: { x: 1, y: -2, z: 4 }, to: { x: -1, y: -3, z: -1 } },
+			},
+			{
+				block: "minecraft:dirt",
+				offset: { from: { x: -2, y: -2, z: 1 }, to: { x: -4, y: -3, z: -1 } },
+			},
+			{
+				block: "minecraft:bedrock",
+				offset: { from: { x: 0, y: -3, z: 0 }, to: { x: 0, y: -3, z: 0 } },
+			},
+		],
 	},
-	blocks: {
-		leaves1: {
-			block: "minecraft:oak_leaves",
-			offset: { from: { x: -3, y: 6, z: -1 }, to: { x: -5, y: 6, z: -1 } },
+	{
+		name: "Sand Island",
+		targetDimension: "overworld",
+		origin_offset: { x: 0, y: 0, z: -67 },
+		loot: {
+			containerLoc: { x: 0, y: 0, z: 0 },
+			items: [
+				{ slot: 9, item: "minecraft:sugar_cane", amount: 1 },
+				{ slot: 11, item: "minecraft:pumpkin_seeds", amount: 1 },
+				{ slot: 13, item: "minecraft:obsidian", amount: 10 },
+				{ slot: 15, item: "minecraft:melon_slice", amount: 1 },
+				{ slot: 17, item: "minecraft:turtle_egg", amount: 2 },
+			],
 		},
-		leaves2: {
-			block: "minecraft:oak_leaves",
-			offset: { from: { x: -4, y: 6, z: 0 }, to: { x: -4, y: 6, z: -2 } },
-		},
-		leaves3: {
-			block: "minecraft:oak_leaves",
-			offset: { from: { x: -3, y: 5, z: 0 }, to: { x: -5, y: 5, z: -2 } },
-		},
-		leaves4: {
-			block: "minecraft:oak_leaves",
-			offset: { from: { x: -2, y: 4, z: 1 }, to: { x: -6, y: 4, z: -3 } },
-		},
-		leaves5: {
-			block: "minecraft:oak_leaves",
-			offset: { from: { x: -2, y: 3, z: 0 }, to: { x: -6, y: 3, z: -2 } },
-		},
-		leaves6: {
-			block: "minecraft:oak_leaves",
-			offset: { from: { x: -3, y: 3, z: 1 }, to: { x: -5, y: 3, z: -3 } },
-		},
-		logs: {
-			block: "minecraft:oak_log",
-			offset: { from: { x: -4, y: 5, z: -1 }, to: { x: -4, y: 0, z: -1 } },
-		},
-		chest: {
-			block: "minecraft:chest",
-			perms: { perm: "minecraft:cardinal_direction", value: "north" },
-			offset: { from: { x: 0, y: 0, z: 4 }, to: { x: 0, y: 0, z: 4 } },
-		},
-		grass1: {
-			block: "minecraft:grass",
-			offset: { from: { x: 1, y: -1, z: 4 }, to: { x: -1, y: -1, z: -1 } },
-		},
-		grass2: {
-			block: "minecraft:grass",
-			offset: { from: { x: -2, y: -1, z: 1 }, to: { x: -4, y: -1, z: -1 } },
-		},
-		dirt1: {
-			block: "minecraft:dirt",
-			offset: { from: { x: 1, y: -2, z: 4 }, to: { x: -1, y: -3, z: -1 } },
-		},
-		dirt2: {
-			block: "minecraft:dirt",
-			offset: { from: { x: -2, y: -2, z: 1 }, to: { x: -4, y: -3, z: -1 } },
-		},
-		bedrock: {
-			block: "minecraft:bedrock",
-			offset: { from: { x: 0, y: -3, z: 0 }, to: { x: 0, y: -3, z: 0 } },
-		},
+		blocks: [
+			{
+				block: "minecraft:chest",
+				perms: { perm: "minecraft:cardinal_direction", value: "south" },
+				offset: { from: { x: 0, y: 0, z: 0 }, to: { x: 0, y: 0, z: 0 } },
+			},
+			{
+				block: "minecraft:sand",
+				offset: { from: { x: -1, y: -1, z: -1 }, to: { x: 1, y: -3, z: 1 } },
+			},
+			{
+				block: "minecraft:sculk_vein",
+				perms: { perm: "multi_face_direction_bits", value: 2 },
+				offset: { from: { x: -2, y: -4, z: -2 }, to: { x: 2, y: -4, z: 2 } },
+			},
+			{
+				block: "minecraft:cactus",
+				offset: { from: { x: -1, y: 0, z: -1 }, to: { x: -1, y: 0, z: -1 } },
+			},
+			{
+				block: "minecraft:cactus_flower",
+				offset: { from: { x: -1, y: 1, z: -1 }, to: { x: -1, y: 1, z: -1 } },
+			},
+			// Updates all sculk to be the correct permutation (sometimes its bugged so this is a backup)
+			{
+				block: "minecraft:sculk_vein",
+				perms: { perm: "multi_face_direction_bits", value: 2 },
+				offset: { from: { x: -2, y: -5, z: -2 }, to: { x: 2, y: -5, z: 2 } },
+			},
+			{
+				block: "minecraft:air",
+				offset: { from: { x: -2, y: -5, z: -2 }, to: { x: 2, y: -5, z: 2 } },
+			},
+		],
 	},
-};
-
-// --------------------------------------------------
-// Sand Island Definition
-// --------------------------------------------------
-const sandIsland = {
-	name: "Sand Island",
-	targetDimension: "overworld",
-	origin_offset: { x: 0, y: 0, z: -67 },
-	loot: {
-		chestLoc: { x: 0, y: 0, z: 0 },
-		items: {
-			sugarcane: { slot: 9, item: "minecraft:sugar_cane", amount: 1 },
-			pumpkin: { slot: 11, item: "minecraft:pumpkin_seeds", amount: 1 },
-			obsidian: { slot: 13, item: "minecraft:obsidian", amount: 10 },
-			melon_seeds: { slot: 15, item: "minecraft:melon_slice", amount: 1 },
-			turtle_eggs: { slot: 17, item: "minecraft:turtle_egg", amount: 2 },
-		},
-	},
-	blocks: {
-		chest: {
-			block: "minecraft:chest",
-			perms: { perm: "minecraft:cardinal_direction", value: "south" },
-			offset: { from: { x: 0, y: 0, z: 0 }, to: { x: 0, y: 0, z: 0 } },
-		},
-		sand: {
-			block: "minecraft:sand",
-			offset: { from: { x: -1, y: -1, z: -1 }, to: { x: 1, y: -3, z: 1 } },
-		},
-		sculk: {
-			block: "minecraft:sculk_vein",
-			perms: { perm: "multi_face_direction_bits", value: 2 },
-			offset: { from: { x: -2, y: -4, z: -2 }, to: { x: 2, y: -4, z: 2 } },
-		},
-		cactus: {
-			block: "minecraft:cactus",
-			offset: { from: { x: -1, y: 0, z: -1 }, to: { x: -1, y: 0, z: -1 } },
-		},
-		cactus_flower: {
-			block: "minecraft:cactus_flower",
-			offset: { from: { x: -1, y: 1, z: -1 }, to: { x: -1, y: 1, z: -1 } },
-		},
-		// Updates all sculk to be the correct permutation (sometimes its bugged so this is a backup)
-		update1: {
-			block: "minecraft:sculk_vein",
-			perms: { perm: "multi_face_direction_bits", value: 2 },
-			offset: { from: { x: -2, y: -5, z: -2 }, to: { x: 2, y: -5, z: 2 } },
-		},
-		update2: {
-			block: "minecraft:air",
-			offset: { from: { x: -2, y: -5, z: -2 }, to: { x: 2, y: -5, z: 2 } },
-		},
-	},
-};
+];
 
 // --------------------------------------------------
 // Nether Island Definition
@@ -218,7 +216,6 @@ const netherIsland = {
 // --------------------------------------------------
 // Island Registries
 // --------------------------------------------------
-const overworldIslands = [starterIsland, sandIsland];
 const netherIslands = [netherIsland];
 const endIslands = [];
 
