@@ -9,8 +9,8 @@ export function worldInitializer() {
 	// Initialize player registry
 	for (const player of allPlayers) {
 		registerPlayer(player);
+		console.log(`Initialized player registry with ${playerInfoMaps.size} players.`);
 		initializeIslands(player);
 	}
-	console.log(`Initialized player registry with ${playerInfoMaps.size} players.`);
 	return true;
 }

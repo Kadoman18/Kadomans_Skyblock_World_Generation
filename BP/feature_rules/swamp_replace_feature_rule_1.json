@@ -1,0 +1,25 @@
+{
+	"format_version": "1.21.60",
+	"minecraft:feature_rules": {
+		"description": {
+			"identifier": "kado:swamp_replace_feature_rule_1",
+			"places_feature": "kado:swamp_replace_feature"
+		},
+		"conditions": {
+			"placement_pass": "final_pass",
+			"minecraft:biome_filter": [
+				{
+					"test": "has_biome_tag",
+					"operator": "==",
+					"value": "swamp"
+				}
+			]
+		},
+		"distribution": {
+			"iterations": 1,
+			"x": 0,
+			"z": 0,
+			"y": -64
+		}
+	}
+}

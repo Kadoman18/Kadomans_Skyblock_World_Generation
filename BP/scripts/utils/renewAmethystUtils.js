@@ -4,7 +4,6 @@
  * false = structure invalid
  * undefined  = cannot evaluate (unloaded chunks)
  */
-
 export function validGeode(dimension, blockLoc) {
 	const inner = "minecraft:calcite";
 	const outer = "minecraft:smooth_basalt";
@@ -48,6 +47,7 @@ export function validGeode(dimension, blockLoc) {
 	}
 	return true;
 }
+
 /**
  * Generates a randomized delay for budding amethyst conversion.
  * * The returned value:

@@ -8,6 +8,7 @@ import {
 	findBlockInChunk,
 	hasBiome,
 	iterateChunksCircular,
+	sameChunkAsLast,
 } from "../utils/chunkUtils";
 
 export function ancientCityGen(initialized) {
@@ -48,8 +49,4 @@ export function ancientCityGen(initialized) {
 			world.setDynamicProperty(key, true);
 		});
 	}
-}
-
-function sameChunkAsLast(lastChunk, playerChunk) {
-	return lastChunk.x === playerChunk.x && lastChunk.z === playerChunk.z;
 }

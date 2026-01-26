@@ -16,14 +16,14 @@ import { coordsString } from "../utils/debugUtils";
  * - Multiple players to use the same vault independently
  * - One player to interact with multiple vaults concurrently
  *
- * @param {Block} block - Vault block.
- * @param {Player} player - Player interacting with the vault.
+ * @param {import("@minecraft/server").Block} block - Vault block.
+ * @param {import("@minecraft/server").Player} player - Player interacting with the vault.
  * @returns {string} Dynamic property key.
  */
-
 export function makeVaultCooldownId(block, player) {
 	return `kado:vault-${block.permutation.getState("kado:vault_type")}-${coordsString(block.location, "noSpace")}-${player.name}`;
 }
+
 /**
  * Sequentially ejects generated vault loot items.
  * * Behavior:
@@ -32,11 +32,10 @@ export function makeVaultCooldownId(block, player) {
  * - Applies controlled impulse for visual ejection
  * - Returns vault to ACTIVE state after completion
  *
- * @param {Dimension} dimension - Vault Block dimension.
- * @param {Block} block - Vault block.
+ * @param {import("@minecraft/server").Dimension} dimension - Vault Block dimension.
+ * @param {import("@minecraft/server").Block} block - Vault block.
  * @param {Array<ItemStack>} lootRoll - Generated loot entries.
  */
-
 export function dispenseVaultLoot(dimension, block, lootRoll) {
 	dimension.playSound("vault.open_shutter", block.location);
 	system.runTimeout(() => {
@@ -73,7 +72,7 @@ export function dispenseVaultLoot(dimension, block, lootRoll) {
  *   kado:budAmWater-minecraft:overworld-(1:64:2)
  *
  * @param {string} id - Dynamic property identifier.
- * @returns {Vector3} Parsed coordinates or undefined if invalid.
+ * @returns {import("@minecraft/server").Vector3} Parsed coordinates or undefined if invalid.
 
 */
 

@@ -114,7 +114,7 @@ export const kadoVault = {
 			}
 			return;
 		}
-		// Survival Interractions
+		// Survival Interactions
 		if (
 			((world.getDynamicProperty(cooldownId) ?? 0) > 0 &&
 				permutation.getState("kado:vault_state") !== "active") ||

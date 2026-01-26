@@ -4,13 +4,13 @@ import { processAmethystBuds } from "../../loops/amethystBudLoop";
 import { worldInitializer } from "../../loops/worldInitializer";
 
 world.afterEvents.worldLoad.subscribe(() => {
-        let initialized = false;
+	let initialized = false;
 	const initInterval = system.runInterval(() => {
 		if (worldInitializer()) {
 			initialized = true;
 			system.clearRun(initInterval);
 		}
-        }, 5);
+	}, 5);
 	system.runInterval(() => {
 		ancientCityGen(initialized);
 	}, 20);

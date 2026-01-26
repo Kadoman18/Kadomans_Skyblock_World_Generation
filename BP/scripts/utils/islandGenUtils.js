@@ -1,4 +1,4 @@
-import { world, BlockVolume, system, ItemStack, Block } from "@minecraft/server";
+import { world, BlockVolume, system, ItemStack } from "@minecraft/server";
 import { calculateOffsets } from "../utils/mathUtils";
 import { typeIdify, debugMsg, coordsString } from "../utils/debugUtils";
 import {
@@ -13,7 +13,7 @@ import { getIslands } from "../registry/islandDefs";
  * Builds all blocks of an island.
  *
  * @param {object} island - Island object.
- * @param {Vector3} worldOrigin - World origin reference.
+ * @param {import("@minecraft/server").Vector3} worldOrigin - World origin reference.
  */
 function buildIslandBlocks(island, worldOrigin) {
 	const dimension = island.dimension;
@@ -76,7 +76,7 @@ const containersArray = [
  * Locates a chest on an island and fills it with loot.
  *
  * @param {object} island - Island object with loot.
- * @param {Vector3} worldOrigin - World origin reference.
+ * @param {import("@minecraft/server").Vector3} worldOrigin - World origin reference.
  */
 function fillContainer(island, worldOrigin) {
 	const dimension = world.getDimension(`minecraft:${island.targetDimension}`);
@@ -109,21 +109,21 @@ function fillContainer(island, worldOrigin) {
  * Fills chest with loot if defined.
  *
  * @param {object} island - Island object with loot.
- * @param {Vector3} worldOrigin - World origin reference.
+ * @param {import("@minecraft/server").Vector3} worldOrigin - World origin reference.
  */
 function finalizeIslandLoot(island, worldOrigin) {
 	if (!island.loot) return;
 	fillContainer(island, worldOrigin);
 }
+
 /**
  * Temporarily prevents player movement by repeatedly teleporting them.
  * Used during island generation to avoid falling before terrain exists.
  *
- * @param {Player} player - Player to suspend.
- * @param {Vector3} location - Fixed teleport location.
+ * @param {import("@minecraft/server").Player} player - Player to suspend.
+ * @param {import("@minecraft/server").Vector3} location - Fixed teleport location.
  * @param {number} ticks - Duration in ticks.
  */
-
 export function suspendPlayer(player, location, ticks = 40) {
 	const suspend = system.runInterval(() => {
 		player.tryTeleport(location);
@@ -144,9 +144,8 @@ export function suspendPlayer(player, location, ticks = 40) {
  * - Cleans up ticking area
  *
  * @param {object} island - Island definition.
- * @param {Vector3} worldOrigin - World origin reference.
+ * @param {import("@minecraft/server").Vector3} worldOrigin - World origin reference.
  */
-
 export function generateIsland(island, worldOrigin) {
 	const dimension = world.getDimension(`minecraft:${island.targetDimension}`);
 	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
@@ -170,7 +169,7 @@ export function makeUnlockKey(dimension) {
 /**
  * Initializes island generation for a player’s current dimension.
  *
- * @param {Player} player
+ * @param {import("@minecraft/server").Player} player
  * @returns {boolean}
  */
 export function initializeIslands(player) {

@@ -2,7 +2,7 @@ import "./hooks/beforeEvents/startup.js";
 import "./hooks/afterEvents/worldLoad.js";
 import "./hooks/afterEvents/playerJoin.js";
 import "./hooks/beforeEvents/playerBreakBlock.js";
-import "./hooks/afterEvents/playerInterractWithBlock.js";
+import "./hooks/afterEvents/playerInteractWithBlock.js";
 import "./hooks/afterEvents/itemUse.js";
 import "./hooks/afterEvents/entitySpawn.js";
 import "./hooks/afterEvents/projectileHitBlock.js";

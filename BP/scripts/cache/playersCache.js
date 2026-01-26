@@ -1,19 +1,30 @@
-import { MemoryTier, Player, VectorXZ } from "@minecraft/server";
-
 /** @type {Map<string, PlayerInfo>} */
 export const playerInfoMaps = new Map();
 
 /**
+ * Cached, per‑player runtime data used to reduce repeated world queries
+ * and drive generation heuristics.
+ *
  * @typedef {Object} PlayerInfo
- * @property {Player} player
+ * @property {import("@minecraft/server").Player} player
+ * Player entity associated with this cache entry.
+ *
  * @property {number} genRadius
- * @property {VectorXZ} lastChunk
+ * Chunk‑generation radius derived from the player's memory tier.
+ *
+ * @property {import("@minecraft/server").VectorXZ | undefined} lastChunk
+ * Last processed chunk for this player, or `undefined` if none has been processed yet.
  */
 
 /**
- * Registers a player object to the cache to save on I/O.
+ * Registers a player in the runtime cache.
  *
- * @param {Player} player - Player object to register to cache.
+ * Side effects:
+ * - Creates a new cache entry keyed by `player.id`
+ * - Computes and stores generation radius
+ *
+ * @param {import("@minecraft/server").Player} player
+ * Player to register.
  */
 export function registerPlayer(player) {
 	playerInfoMaps.set(player.id, {
@@ -23,6 +34,17 @@ export function registerPlayer(player) {
 	});
 }
 
+/**
+ * Computes a chunk‑generation radius based on client memory tier.
+ *
+ * Falls back to a conservative default if tier data is unavailable.
+ *
+ * @param {import("@minecraft/server").Player} player
+ * Player whose client capabilities are evaluated.
+ *
+ * @returns {number}
+ * Generation radius in chunks.
+ */
 function getRadius(player) {
 	switch (player.clientSystemInfo?.memoryTier) {
 		case 0: // Super Low

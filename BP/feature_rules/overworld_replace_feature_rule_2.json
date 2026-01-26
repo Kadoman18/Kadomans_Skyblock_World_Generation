@@ -21,6 +21,11 @@
 							"value": "overworld_generation"
 						}
 					]
+				},
+				{
+					"test": "has_biome_tag",
+					"operator": "!=",
+					"value": "swamp"
 				}
 			]
 		},
