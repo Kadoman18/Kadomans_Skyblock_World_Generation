@@ -10,7 +10,7 @@ world.afterEvents.worldLoad.subscribe(() => {
 			initialized = true;
 			system.clearRun(initInterval);
 		}
-	}, 5);
+        }, 5);
 	system.runInterval(() => {
 		ancientCityGen(initialized);
 	}, 20);

@@ -1,4 +1,4 @@
-import { MemoryTier, Player, VectorXZ} from "@minecraft/server";
+import { MemoryTier, Player, VectorXZ } from "@minecraft/server";
 
 /** @type {Map<string, PlayerInfo>} */
 export const playerInfoMaps = new Map();
@@ -6,7 +6,7 @@ export const playerInfoMaps = new Map();
 /**
  * @typedef {Object} PlayerInfo
  * @property {Player} player
- * @property {number} memoryTier
+ * @property {number} genRadius
  * @property {VectorXZ} lastChunk
  */
 
@@ -18,7 +18,24 @@ export const playerInfoMaps = new Map();
 export function registerPlayer(player) {
 	playerInfoMaps.set(player.id, {
 		player,
-		memoryTier: player.clientSystemInfo?.memoryTier ?? MemoryTier.Low,
+		genRadius: getRadius(player),
 		lastChunk: undefined,
 	});
+}
+
+function getRadius(player) {
+	switch (player.clientSystemInfo?.memoryTier) {
+		case 0: // Super Low
+			return 8;
+		case 1: // Low
+			return 10;
+		case 2: // Mid
+			return 12;
+		case 3: // High
+			return 16;
+		case 4: // Super High
+			return 25;
+		default:
+			return 8;
+	}
 }

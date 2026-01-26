@@ -218,6 +218,17 @@ const netherIsland = {
 // --------------------------------------------------
 // Island Registries
 // --------------------------------------------------
+const overworldIslands = [starterIsland, sandIsland];
+const netherIslands = [netherIsland];
+const endIslands = [];
 
-export const overworldIslands = [starterIsland, sandIsland];
-export const netherIslands = [netherIsland];
+export function getIslands(dimension) {
+	switch (dimension.id) {
+		case "minecraft:overworld":
+			return overworldIslands;
+		case "minecraft:nether":
+			return netherIslands;
+		case "minecraft:the_end":
+			return endIslands;
+	}
+}

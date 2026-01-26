@@ -1,5 +1,6 @@
 import { world } from "@minecraft/server";
 import { registerPlayer, playerInfoMaps } from "../cache/playersCache";
+import { initializeIslands } from "../utils/islandGenUtils";
 
 export function worldInitializer() {
 	// Wait until at least one player exists
@@ -8,6 +9,7 @@ export function worldInitializer() {
 	// Initialize player registry
 	for (const player of allPlayers) {
 		registerPlayer(player);
+		initializeIslands(player);
 	}
 	console.log(`Initialized player registry with ${playerInfoMaps.size} players.`);
 	return true;

@@ -1,6 +1,5 @@
 import "./hooks/beforeEvents/startup.js";
 import "./hooks/afterEvents/worldLoad.js";
-import "./hooks/afterEvents/playerSpawn.js";
 import "./hooks/afterEvents/playerJoin.js";
 import "./hooks/beforeEvents/playerBreakBlock.js";
 import "./hooks/afterEvents/playerInterractWithBlock.js";

@@ -2,6 +2,7 @@ import { world, BlockVolume, system, ItemStack } from "@minecraft/server";
 import { calculateOffsets } from "../utils/mathUtils";
 import { debugMsg, coordsString } from "../utils/debugUtils";
 import { createTickingArea, waitForChunkLoaded, removeTickingArea } from "../utils/chunkUtils";
+import { getIslands } from "../registry/islandDefs";
 
 // --------------------------------------------------
 // Island Build Functions
@@ -162,4 +163,53 @@ export function generateIsland(island, worldOrigin) {
 			removeTickingArea(island.dimension, tickName);
 		}, 20);
 	});
+}
+
+export function makeUnlockKey(dimension) {
+	return `kado:${dimension.id.replaceAll("minecraft:", "")}_unlocked`;
+}
+
+export function dimensionUnlocked(dimension) {
+	return world.getDynamicProperty(makeUnlockKey(dimension));
+}
+
+/**
+ * Initializes island generation for a dimension.
+ *
+ * @param {Dimension} dimension
+ * @param {Object} islands
+ * @param {Player[]} players
+ * @returns {boolean}
+ */
+export function initializeIslands(player) {
+	const { dimension, location } = player;
+	const unlockKey = makeUnlockKey(player.dimension);
+	if (dimensionUnlocked(dimension)) return;
+	const islands = getIslands(player.dimension);
+	if (!islands || islands.length === 0) return false;
+	const origin =
+		dimension.id === "minecraft:overworld"
+			? {
+					x: world.getDefaultSpawnLocation().x,
+					y: 65,
+					z: world.getDefaultSpawnLocation().z,
+				}
+			: location;
+	debugMsg(`Origin Found: ${coordsString(origin)} - Awaiting island generation.`);
+	suspendPlayer(
+		player,
+		{
+			x: origin.x + 0.5,
+			y: origin.y,
+			z: origin.z + 0.5,
+		},
+		10,
+	);
+	// Thanks Lyvvy <3
+	for (const island of islands) {
+		generateIsland(island, origin);
+	}
+	world.setDynamicProperty(unlockKey, true);
+	debugMsg(`Dynamic Property "${unlockKey}" set to ${world.getDynamicProperty(unlockKey)}`);
+	return true;
 }

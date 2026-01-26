@@ -2,7 +2,7 @@ import { world } from "@minecraft/server";
 import { playerInfoMaps } from "../cache/playersCache";
 import { debugMsg } from "../utils/debugUtils";
 import {
-        applyPermToLocation,
+	applyPermToLocation,
 	chunksString,
 	convertChunkToCoords,
 	findBlockInChunk,
@@ -13,44 +13,19 @@ import {
 export function ancientCityGen(initialized) {
 	if (!initialized) return;
 	for (const playerInfoMap of playerInfoMaps.values()) {
-		const player = playerInfoMap.player;
-		const dimension = player?.dimension;
-		if (!dimension) continue;
-		const playerChunk = {
+		const { player, genRadius } = playerInfoMap;
+		const { dimension } = player;
+		if (!dimension || dimension.id !== "minecraft:overworld") continue;
+		const currentChunk = {
 			x: Math.floor(player.location.x / 16),
 			z: Math.floor(player.location.z / 16),
 		};
 		// Skip if player hasn’t changed chunks
-		if (
-			playerInfoMap.lastChunk &&
-			playerInfoMap.lastChunk.x === playerChunk.x &&
-			playerInfoMap.lastChunk.z === playerChunk.z
-		)
+		if (playerInfoMap.lastChunk && sameChunkAsLast(playerInfoMap.lastChunk, currentChunk))
 			continue;
-		playerInfoMap.lastChunk = playerChunk;
-		debugMsg(`Players chunk is ${chunksString(playerChunk)}`);
-		let radius;
-		switch (playerInfoMap.memoryTier) {
-			case 0: // Super Low
-				radius = 8;
-				break;
-			case 1: // Low
-				radius = 10;
-				break;
-			case 2: // Mid
-				radius = 12;
-				break;
-			case 3: // High
-				radius = 16;
-				break;
-			case 4: // Super High
-				radius = 25;
-				break;
-			default:
-				radius = 8;
-		}
-		debugMsg(`Memory Tier: ${playerInfoMap.memoryTier}\nTarget Scan Radius: ${radius} (Chunks)`);
-		iterateChunksCircular(playerChunk, radius, (chunk) => {
+		playerInfoMap.lastChunk = currentChunk;
+		debugMsg(`Players chunk is ${chunksString(currentChunk)}`);
+		iterateChunksCircular(currentChunk, genRadius, (chunk) => {
 			// Skip already checked chunks
 			const key = `kado:chunkLoaded-(${chunk.x}:${chunk.z})`;
 			if (
@@ -73,4 +48,8 @@ export function ancientCityGen(initialized) {
 			world.setDynamicProperty(key, true);
 		});
 	}
+}
+
+function sameChunkAsLast(lastChunk, playerChunk) {
+	return lastChunk.x === playerChunk.x && lastChunk.z === playerChunk.z;
 }
