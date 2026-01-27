@@ -1,5 +1,6 @@
 import { system, BlockVolume } from "@minecraft/server";
-import { coordsString, debugMsg } from "../utils/debugUtils";
+import { coordsString, debugMsg, typeIdify } from "../utils/debugUtils";
+import { calculateOffsets } from "../utils/mathUtils";
 
 /**
  * Resolves once the chunk containing the given location is loaded.
@@ -322,31 +323,39 @@ export function replaceBlock(dimension, chunk, bounds, blockMap, onApplied) {
 			z: chunk.z * 16 + 15,
 		},
 	);
-
 	let applied = false;
-
-	iterateBlockVolume(dimension, volume.from, volume.to, (block) => {
+	iterateBlockVolume(dimension, volume, (block) => {
+		/** @type {import("./typedefs").ReplacementConfig>} */
 		const config = blockMap[block.typeId];
 		if (!config) return;
-
-		if (config.blockId) {
-			dimension.setBlockType(block.location, config.blockId);
+		debugMsg(
+			`ReplaceBlockConfig found for ${typeIdify(block)} block at ${coordsString(block.location)}`,
+		);
+		if (config.replaceWithBlock) {
+			dimension.setBlockType(block.location, config.replaceWithBlock);
 		}
-
-		if (config.perm) {
-			applyPermToLocation(dimension, block.location, config.perm.perm, config.perm.value);
+		if (config.permutation) {
+			applyPermToLocation(
+				dimension,
+				block.location,
+				config.permutation.id,
+				config.permutation.value,
+			);
 		}
-
-		if (config.structure) {
-			placeStructureAt(dimension, block.location, config.structure);
+		if (config.summonEntity) {
+			const entity = dimension.spawnEntity(
+				config.summonEntity.id,
+				calculateOffsets(block.location, config.summonEntity.offset),
+				{ initialPersistence: true },
+			);
+			for (const event of config.summonEntity.spawnEvents) {
+				entity.triggerEvent(event);
+			}
 		}
-
 		onApplied?.(block);
-
 		applied = true;
 		return false;
 	});
-
 	return applied;
 }
 

@@ -1,5 +1,5 @@
 import { world, system } from "@minecraft/server";
-import { ancientCityGen } from "../../loops/ancientCityGen";
+import { scriptWorldGen } from "../../loops/scriptWorldGen";
 import { processAmethystBuds } from "../../loops/amethystBudLoop";
 import { worldInitializer } from "../../loops/worldInitializer";
 
@@ -12,7 +12,7 @@ world.afterEvents.worldLoad.subscribe(() => {
 		}
 	}, 5);
 	system.runInterval(() => {
-		ancientCityGen(initialized);
+		scriptWorldGen(initialized);
 	}, 20);
 	system.runTimeout(() => {
 		system.runInterval(() => {

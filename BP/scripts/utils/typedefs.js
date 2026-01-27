@@ -52,7 +52,7 @@
  * after the block is placed.
  *
  * @typedef {Object} PermDef
- * @property {string|undefined} perm - Block permutation property identifier.
+ * @property {string|undefined} id - Block permutation property identifier.
  * @property {string|boolean|number|undefined} value - Value assigned to the permutation.
  */
 
@@ -68,18 +68,25 @@
  */
 
 /**
- * @typedef {Object} StructureConfig
+ * @typedef {Object} EntityConfig
  * @property {string} id
  * @property {import("@minecraft/server").Vector3=} offset
- * @property {number=} rotation
- * @property {boolean=} mirror
+ * @property {string[]} spawnEvents
  */
 
 /**
  * @typedef {Object} ReplacementConfig
- * @property {string=} blockId
- * @property {PermConfig=} perm
- * @property {StructureConfig=} structure
+ * @property {BiomeFilter=} biomeFilter
+ * @property {string=} replaceWithBlock
+ * @property {PermDef=} permutation
+ * @property {EntityConfig=} summonEntity
+ * @property {string=} sound
+ */
+
+/**
+ * @typedef {Object} BiomeFilter
+ * @property {string} biomeId
+ * @property {import("@minecraft/common").NumberRange|number} searchLocation
  */
 
 export {};

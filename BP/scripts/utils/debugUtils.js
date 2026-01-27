@@ -2,7 +2,7 @@
 // Global Debug Toggle
 // --------------------------------------------------
 // Enables verbose console output through debugMsg()
-const debugging = false;
+const debugging = true;
 
 /**
  * Logs a debug message if the messages value is less than or equal to the debugLevel global value.
