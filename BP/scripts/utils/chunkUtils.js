@@ -16,7 +16,7 @@ import { calculateOffsets } from "../utils/mathUtils";
  * @param {import("@minecraft/server").Dimension} dimension - Dimension to wait for load in.
  * @param {import("@minecraft/server").Vector3} location - World location whose chunk must be loaded.
  * @param {number} intervalTicks - Poll interval in ticks (minimum 1).
- * @returns {Promise<boolean>} - Resolves `true` if the chunk loads successfully, `false` otherwise.
+ * @returns {Promise<boolean>} Resolves `true` if the chunk loads successfully, `false` otherwise.
  */
 // butts=-2(chunky+5buttnut)*overbort/futbutt08dups
 export function waitForChunkLoaded(dimension, location, intervalTicks = 20, timeoutTicks = 1200) {
@@ -49,7 +49,7 @@ export function waitForChunkLoaded(dimension, location, intervalTicks = 20, time
  * @param {import("@minecraft/server").Dimension} dimension - Dimension in which to create the ticking area.
  * @param {number} chunkX - Chunk X coordinate.
  * @param {number} chunkZ - Chunk Z coordinate.
- * @returns {string} - Identifier of the created ticking area.
+ * @returns {string} Identifier of the created ticking area.
  */
 export function createTickingArea(dimension, location, name) {
 	dimension.runCommand(`tickingarea add circle ${coordsString(location, "command")} 2 ${name}`);
@@ -71,9 +71,9 @@ export function removeTickingArea(dimension, name) {
  * Iterates all blocks in a volume.
  * If the callback returns false, iteration stops early.
  *
- * @param {import("@minecraft/server").Dimension} dimension
- * @param {import("@minecraft/server").BlockVolume} volume
- * @param {(block: import("@minecraft/server").Block) => (void | boolean)} func
+ * @param {import("@minecraft/server").Dimension} dimension - The dimension in which to iterate.
+ * @param {import("@minecraft/server").BlockVolume} volume - The volume to iterate through.
+ * @param {(block: import("@minecraft/server").Block) => (void | boolean)} func - The function to call should the iteration return `true`.
  */
 export function iterateBlockVolume(dimension, volume, func) {
 	const minX = Math.min(volume.from.x, volume.to.x);
@@ -119,9 +119,9 @@ export function iterateChunksCircular(centerChunk, radius, callback) {
 /**
  * Applies a block permutation to a location.
  *
- * @param {import("@minecraft/server").Dimension} dimension
- * @param {import("@minecraft/server").Vector3|import("@minecraft/server").BlockVolume} location
- * @param {import("./typedefs").PermDef[]} perms
+ * @param {import("@minecraft/server").Dimension} dimension - The dimension in which to apply the permutations.
+ * @param {import("@minecraft/server").Vector3|import("@minecraft/server").BlockVolume} location - The coordinates or volume where the permutations should be applied.
+ * @param {import("./typedefs").PermDef[]} perms - The permutation objects to apply.
  */
 export function applyPermsToLocation(dimension, location, perms) {
 	applyFuncToLocation(dimension, location, (block) => {
@@ -132,9 +132,9 @@ export function applyPermsToLocation(dimension, location, perms) {
 /**
  * Applies a function to a single block or block volume.
  *
- * @param {import("@minecraft/server").Dimension} dimension
- * @param {import("@minecraft/server").Vector3|import("@minecraft/server").BlockVolume} location
- * @param {(block: import("@minecraft/server").Block) => void} func
+ * @param {import("@minecraft/server").Dimension} dimension - The dimension in which the function will be applied.
+ * @param {import("@minecraft/server").Vector3|import("@minecraft/server").BlockVolume} location - The coordinates or volume where the function should be applied.
+ * @param {(block: import("@minecraft/server").Block) => void} func - The function to apply.
  */
 export function applyFuncToLocation(dimension, location, func) {
 	if (location instanceof BlockVolume) {
@@ -149,8 +149,8 @@ export function applyFuncToLocation(dimension, location, func) {
 /**
  * Applies a permutation state to a block.
  *
- * @param {import("@minecraft/server").Block} block
- * @param {import("./typedefs").PermDef[]} perms
+ * @param {import("@minecraft/server").Block} block - The block to apply the permutations to.
+ * @param {import("./typedefs").PermDef[]} perms - The permutation objects to apply.
  */
 export function applyPermsToBlock(block, perms) {
 	for (const perm of perms) {
@@ -161,9 +161,9 @@ export function applyPermsToBlock(block, perms) {
 /**
  * Converts chunk locations into coordinates.
  *
- * @param {import("@minecraft/server").VectorXZ} chunk
- * @param {number} yLevel
- * @returns {import("@minecraft/server").Vector3}
+ * @param {import("@minecraft/server").VectorXZ} chunk - The chunk to convert into coordinates.
+ * @param {number} yLevel - Optional y level for outputted Vector3.
+ * @returns {import("@minecraft/server").Vector3} World oordinates of given chunk origin
  */
 export function convertChunkToCoords(chunk, yLevel = 0) {
 	if (!chunk || !Number.isInteger(chunk.x) || !Number.isInteger(chunk.z)) {
@@ -179,14 +179,14 @@ export function convertChunkToCoords(chunk, yLevel = 0) {
 /**
  * Finds a block in a given chunk, verifies it matches the predicate, then executes a function on that block.
  *
- * @param {import("@minecraft/server").Dimension} dimension
- * @param {import("@minecraft/server").VectorXZ} chunk
- * @param {import("@minecraft/common").NumberRange} bounds
- * @param {(block: import("@minecraft/server").Block) => boolean} predicate
- * @param {(block: import("@minecraft/server").Block) => void} func
- * @returns {boolean|undefined}
+ * @param {import("@minecraft/server").Dimension} dimension - The dimension in which to search
+ * @param {import("@minecraft/server").VectorXZ} chunk - The chunk in which to search.
+ * @param {import("@minecraft/common").NumberRange} bounds - The y value max and min in which to search.
+ * @param {(block: import("@minecraft/server").Block) => boolean} predicate - The search condition.
+ * @param {(block: import("@minecraft/server").Block) => void} func - The function to execute after a successful search.
+ * @returns {boolean} `true` if block was found and sucessful execution, else `false`.
  */
-export function findBlockInChunk(dimension, chunk, bounds, predicate, func = undefined) {
+export function findBlockInChunkAndDoFunc(dimension, chunk, bounds, predicate, func = undefined) {
 	const volume = new BlockVolume(
 		{
 			x: chunk.x * 16,
@@ -200,20 +200,20 @@ export function findBlockInChunk(dimension, chunk, bounds, predicate, func = und
 		},
 	);
 	if (func) {
-		findFirstMatchingBlock(dimension, volume, predicate, func);
+                findFirstMatchingBlock(dimension, volume, predicate, func);
 	} else {
-		return findFirstMatchingBlock(dimension, volume, predicate, func) ? true : false;
+		return findFirstMatchingBlock(dimension, volume, predicate) ? true : false;
 	}
 }
 
 /**
  * Finds the first matching block in a volume and optionally applies a function to it.
  *
- * @param {import("@minecraft/server").Dimension} dimension
- * @param {import("@minecraft/server").BlockVolume} from
- * @param {(block: import("@minecraft/server").Block) => boolean} predicate
- * @param {(block: import("@minecraft/server").Block) => void} func
- * @returns {boolean} true if a block was found
+ * @param {import("@minecraft/server").Dimension} dimension The dimension in which to search.
+ * @param {import("@minecraft/server").BlockVolume} volume - The volume in which to search.
+ * @param {(block: import("@minecraft/server").Block) => boolean} predicate - The search condition.
+ * @param {(block: import("@minecraft/server").Block) => void} func - The function to execute after a successful search.
+ * @returns {boolean} `true` if a block was found, else `false`.
  */
 export function findFirstMatchingBlock(dimension, volume, predicate, func = undefined) {
 	const block = findBlockInVolume(dimension, volume, predicate);
@@ -225,10 +225,10 @@ export function findFirstMatchingBlock(dimension, volume, predicate, func = unde
 /**
  * Finds the first block in a volume that matches a predicate.
  *
- * @param {import("@minecraft/server").Dimension} dimension
- * @param {import("@minecraft/server").BlockVolume} volume
- * @param {(block: import("@minecraft/server").Block) => boolean} predicate
- * @returns {import("@minecraft/server").Block|undefined}
+ * @param {import("@minecraft/server").Dimension} dimension - The dimension in which to search.
+ * @param {import("@minecraft/server").BlockVolume} volume - The volume in which to search.
+ * @param {(block: import("@minecraft/server").Block) => boolean} predicate - The search condition.
+ * @returns {import("@minecraft/server").Block|undefined} The block that was found, else `undefined`.
  */
 export function findBlockInVolume(dimension, volume, predicate) {
 	let found;
@@ -241,9 +241,10 @@ export function findBlockInVolume(dimension, volume, predicate) {
 }
 
 /**
+ * Stringifies a chunk coordinate in order to enable verbose debug logs.
  *
- * @param {import("@minecraft/server").VectorXZ} chunk
- * @returns {string}
+ * @param {import("@minecraft/server").VectorXZ} chunk - The chunk to stringify.
+ * @returns {string} The stringified chunk
  */
 export function chunksString(chunk) {
 	return `(X: ${chunk.x}, Z: ${chunk.z})`;
@@ -256,7 +257,7 @@ export function chunksString(chunk) {
  * @param {import("@minecraft/server").VectorXZ} chunk - Chunk being searched.
  * @param {string} biome - Biome to search for.
  * @param {import("@minecraft/common").NumberRange} bounds - Vertical search bounds.
- * @returns {boolean}
+ * @returns {boolean} `true` if the specified biome was found, `false` otherwise.
  */
 export function hasBiome(dimension, chunk, biome, bounds) {
 	return searchChunk(
@@ -270,12 +271,12 @@ export function hasBiome(dimension, chunk, biome, bounds) {
 /**
  * Finds a block in a given chunk, verifies it matches the predicate, then executes a function on that block.
  *
- * @param {import("@minecraft/server").Dimension} dimension
- * @param {import("@minecraft/server").VectorXZ} chunk
- * @param {import("@minecraft/common").NumberRange} bounds
- * @param {import("./typedefs").ReplacementConfig} blockMap
- * @param {(block: import("@minecraft/server").Block) => void} func
- * @returns {boolean|undefined}
+ * @param {import("@minecraft/server").Dimension} dimension - Dimension in which to execute the block replacement.
+ * @param {import("@minecraft/server").VectorXZ} chunk - The chunk in which to search for the specified block.
+ * @param {import("@minecraft/common").NumberRange} bounds - The y range in which to serch the given chunk.
+ * @param {import("./typedefs").ReplacementConfig} blockMap - The config containing the block to search for and the specifics of what to replace it with.
+ * @param {(block: import("@minecraft/server").Block) => void} onApplied - Optional callback function invoked after successfully applying replacements to a block. Receives the modified block as its argument.
+ * @returns {boolean} `true` if a block replacement was applied, `false` otherwise.
  */
 export function replaceBlockInChunk(dimension, chunk, bounds, blockMap, onApplied) {
 	const volume = new BlockVolume(
@@ -344,9 +345,9 @@ export function replaceBlockInChunk(dimension, chunk, bounds, blockMap, onApplie
 /**
  * Checks to see if the chunk a player is currently in, is the same as the chunk they were last checked to be in.
  *
- * @param {import(@minecraft/server).VectorXZ} lastChunk
- * @param {import(@minecraft/server).VectorXZ} playerChunk
- * @returns {boolean}
+ * @param {import(@minecraft/server).VectorXZ} lastChunk - The chunk the player previously polled to have been in.
+ * @param {import(@minecraft/server).VectorXZ} playerChunk - The chunk the player was most recently polled to have been in.
+ * @returns {boolean} `true` if the chunks are the same, else `false`.
  */
 export function sameChunkAsLast(lastChunk, playerChunk) {
 	return lastChunk.x === playerChunk.x && lastChunk.z === playerChunk.z;
@@ -359,7 +360,7 @@ export function sameChunkAsLast(lastChunk, playerChunk) {
  * @param {import("@minecraft/server").Vector3} chunkOrigin - World-space origin of the chunk (NW bottom corner).
  * @param {(block: import("@minecraft/server").Block) => boolean} predicate - Match condition.
  * @param {import("@minecraft/common").NumberRange} bounds - Vertical search bounds.
- * @returns {import("@minecraft/server").Block|undefined}
+ * @returns {import("@minecraft/server").Block|undefined} The `block` found to match the predicate or `undefined` if none were found..
  */
 export function searchChunk(dimension, chunkOrigin, predicate, bounds) {
 	const heightRange = dimension.heightRange;
@@ -388,8 +389,8 @@ export function searchChunk(dimension, chunkOrigin, predicate, bounds) {
 /**
  * Normalizes given search range, takes a range or a number, and outputs a range.
  *
- * @param {import("@minecraft/common").NumberRange|number} searchLocation
- * @returns {import("@minecraft/common").NumberRange}
+ * @param {import("@minecraft/common").NumberRange|number} searchLocation - The y level or y range to normalize.
+ * @returns {import("@minecraft/common").NumberRange} The number range.
  */
 export function normalizeSearchRange(searchLocation) {
 	if (typeof searchLocation === "number") {
