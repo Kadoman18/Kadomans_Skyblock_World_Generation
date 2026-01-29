@@ -41,7 +41,7 @@ export function coordsString(coords, type = "debug") {
  * Converts Minecraft ticks to real-world hours, minutes, and seconds.
  *
  * @param {number} ticks - Number of game ticks.
- * @returns {object} {hours, minutes, seconds}
+ * @returns {{hours:number,minutes:number,seconds:number}} {hours, minutes, seconds}
  */
 export function ticksToTime(ticks) {
 	const totalSeconds = Math.floor(ticks / 20);
@@ -52,9 +52,10 @@ export function ticksToTime(ticks) {
 }
 
 /**
- * @param {import("@minecraft/server").Block|import("@minecraft/server").ItemStack} item
- * @returns {string}
+ * @param {string} id - Block/Item/Entity id
+ * @returns {string} Formatted name of input item, no underscores, no namespace.
  */
-export function typeIdify(item) {
-	return item.typeId.replaceAll("minecraft:", "").replaceAll("_", " ");
+export function typeIdify(id) {
+	if (!id) return "Undefined!";
+	return id.split(":")[1].replaceAll("_", " ");
 }

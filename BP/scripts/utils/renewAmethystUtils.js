@@ -1,4 +1,8 @@
 /**
+ * Takes a block location from the dynamic property parser and determines wether the geode formation is valid at that location.
+ *
+ * @param {import("@minecraft/server").Dimension} dimension
+ * @param {import("@minecraft/server").Vector3} blockLoc
  * @returns {boolean|undefined}
  * true  = structure valid
  * false = structure invalid
@@ -8,7 +12,12 @@ export function validGeode(dimension, blockLoc) {
 	const inner = "minecraft:calcite";
 	const outer = "minecraft:smooth_basalt";
 	const center = dimension.getBlock(blockLoc);
-	if (!center || !dimension.isChunkLoaded(center.location)) return undefined;
+	if (
+		!center ||
+		!dimension.isChunkLoaded(center.location) ||
+		!dimension.getBlock(center.location) === "minecraft:water"
+	)
+		return undefined;
 	const innerChecks = [
 		center.above(),
 		center.north(),
@@ -58,7 +67,6 @@ export function validGeode(dimension, blockLoc) {
  * @returns {number} Randomized delay in ticks.
 
 */
-
 export function randomBudAmDelay(step = 20) {
 	const min = 108000;
 	const max = 144000;

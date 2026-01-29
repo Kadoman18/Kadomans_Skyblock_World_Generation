@@ -2,7 +2,14 @@ import { BlockCustomComponent, world, ItemStack, system } from "@minecraft/serve
 import { playerInfoMaps } from "../cache/playersCache";
 import { ticksToTime, debugMsg, coordsString } from "../utils/debugUtils";
 import { randomNum } from "../utils/mathUtils";
-import { makeVaultCooldownId, dispenseVaultLoot } from "../utils/customVaultUtils";
+import {
+	makeVaultCooldownId,
+	dispenseVaultLoot,
+	invalidVaultInteract,
+	toggleVaultType,
+	validVaultInteract,
+} from "../utils/customVaultUtils";
+import { applyPermsToBlock } from "../utils/chunkUtils";
 
 /** @type {BlockCustomComponent} */
 export const kadoVault = {
@@ -21,35 +28,39 @@ export const kadoVault = {
 		};
 		dimension.spawnParticle("minecraft:basic_smoke_particle", particleLoc);
 		// World-level, per player cooldown ticking
+		let anyCooldownActive = false;
 		for (const playerInfoMap of playerInfoMaps.values()) {
 			const player = playerInfoMap.player;
 			const cooldownId = makeVaultCooldownId(block, player);
 			const cooldown = world.getDynamicProperty(cooldownId) ?? 0;
+
 			if (cooldown > 0) {
 				const next = Math.max(cooldown - 10, 0);
 				world.setDynamicProperty(cooldownId, next);
+				anyCooldownActive = true;
+
 				if (next % 600 === 0 || cooldown === 6000) {
 					const time = ticksToTime(next);
 					debugMsg(`${cooldownId}] Cooldown: ${time.minutes}m ${time.seconds}s`, false);
 				}
-				block.setPermutation(block.permutation.withState("kado:vault_state", "inactive"));
-				continue;
 			}
 		}
 		if (block.permutation.getState("kado:vault_state") === "dispensing") return;
 		let hasEligiblePlayerNearby = false;
-		for (const info of playerInfoMaps.values()) {
-			const player = info.player;
-			const xDist = player.location.x - blockCenter.x;
-			const yDist = player.location.y - blockCenter.y;
-			const zDist = player.location.z - blockCenter.z;
-			const inRange = xDist ** 2 + yDist ** 2 + zDist ** 2 <= activationDist ** 2;
-			if (!inRange) continue;
-			const vaultKey = makeVaultCooldownId(block, info);
-			const cooldown = world.getDynamicProperty(vaultKey) ?? 0;
-			if (cooldown === 0) {
-				hasEligiblePlayerNearby = true;
-				break;
+		if (!anyCooldownActive) {
+			for (const info of playerInfoMaps.values()) {
+				const player = info.player;
+				const xDist = player.location.x - blockCenter.x;
+				const yDist = player.location.y - blockCenter.y;
+				const zDist = player.location.z - blockCenter.z;
+				const inRange = xDist ** 2 + yDist ** 2 + zDist ** 2 <= activationDist ** 2;
+				if (!inRange) continue;
+				const vaultKey = makeVaultCooldownId(block, player);
+				const cooldown = world.getDynamicProperty(vaultKey) ?? 0;
+				if (cooldown === 0) {
+					hasEligiblePlayerNearby = true;
+					break;
+				}
 			}
 		}
 		const newState = hasEligiblePlayerNearby
@@ -66,27 +77,25 @@ export const kadoVault = {
 			dimension.spawnParticle(particle, particleLoc);
 		}
 		if (block.permutation.getState("kado:vault_state") !== newState.state) {
-			block.setPermutation(block.permutation.withState("kado:vault_state", newState.state));
+			applyPermsToBlock(block, [{ id: "kado:vault_state", value: newState.state }]);
 			dimension.playSound(newState.sound, block.location);
 		}
 	},
 	onPlace(eventData) {
 		const { block, previousBlock, dimension } = eventData;
-		block.setPermutation(
-			block.permutation
-				.withState("kado:vault_type", "normal")
-				.withState("kado:vault_state", "inactive"),
-		);
+		applyPermsToBlock(block, [
+			{ id: "kado:vault_type", value: "normal" },
+			{ id: "kado:vault_state", value: "inactive" },
+		]);
 	},
 	onPlayerBreak(eventData) {
 		const { block, brokenBlockPermutation } = eventData;
-		const cooldownPrefix = `kado:reCusVault-${block.dimension.id}-${brokenBlockPermutation.getState("kado:vault_type")}-${coordsString(
-			block.location,
-			"id",
-		)}-`;
+		const cooldownPrefix = `kado:vault-${brokenBlockPermutation.getState("kado:vault_type")}-${coordsString(block.location, "id")}-`;
+		debugMsg(`Block at ${coordsString(block.location)} broken!`);
 		for (const cooldownId of world.getDynamicPropertyIds()) {
 			if (cooldownId.startsWith(cooldownPrefix)) {
 				world.setDynamicProperty(cooldownId, undefined);
+				debugMsg(`Cooldown property for vault at ${coordsString(block.location)} removed.`);
 			}
 		}
 	},
@@ -99,37 +108,16 @@ export const kadoVault = {
 		const cooldownId = makeVaultCooldownId(block, player);
 		// Creative Vault Type Toggle
 		if (player.getGameMode() === "Creative" && (!mainHand || mainHand.typeId === "kado:vault")) {
-			const oldType = vaultType;
-			block.setPermutation(
-				permutation.withState("kado:vault_type", oldType === "normal" ? "ominous" : "normal"),
-			);
-			const oldPrefix = `kado:reCusVault-${block.dimension.id}-${oldType}-${coordsString(
-				block.location,
-				"id",
-			)}-`;
-			for (const id of world.getDynamicPropertyIds()) {
-				if (id.startsWith(oldPrefix)) {
-					world.setDynamicProperty(id, undefined);
-				}
-			}
+			toggleVaultType(vaultType, block);
 			return;
 		}
 		// Survival Interactions
-		if (
-			((world.getDynamicProperty(cooldownId) ?? 0) > 0 &&
-				permutation.getState("kado:vault_state") !== "active") ||
-			player.getGameMode() !== "Survival"
-		) {
+		if (invalidVaultInteract(cooldownId, permutation, player)) {
 			dimension.playSound("vault.reject_rewarded_player", block.location);
 			return;
 		}
 		const keyType = mainHand?.typeId;
-		const valid =
-			(keyType === "minecraft:trial_key" && vaultType === "normal") ||
-			(keyType === "minecraft:ominous_trial_key" &&
-				vaultType === "ominous" &&
-				permutation.getState("kado:vault_state") === "active");
-		if (!valid) {
+		if (!validVaultInteract(keyType, vaultType, permutation)) {
 			dimension.playSound("vault.reject_rewarded_player", block.location);
 			return;
 		}
@@ -148,7 +136,7 @@ export const kadoVault = {
 				? lootManager.getLootTable("chests/trial_chambers/reward")
 				: lootManager.getLootTable("chests/trial_chambers/reward_ominous");
 		const lootRoll = lootManager.generateLootFromTable(lootTable);
-		block.setPermutation(permutation.withState("kado:vault_state", "dispensing"));
+		applyPermsToBlock(block, [{ id: "kado:vault_state", value: "dispensing" }]);
 		dispenseVaultLoot(dimension, block, lootRoll);
 		system.runTimeout(
 			() => {

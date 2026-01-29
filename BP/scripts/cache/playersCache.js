@@ -14,6 +14,9 @@ export const playerInfoMaps = new Map();
  *
  * @property {import("@minecraft/server").VectorXZ | undefined} lastChunk
  * Last processed chunk for this player, or `undefined` if none has been processed yet.
+ *
+ * @property {number | undefined} lastChunkCheckPoll
+ * Tick timestamp of the last chunk-generation poll for this player.
  */
 
 /**
@@ -31,6 +34,7 @@ export function registerPlayer(player) {
 		player,
 		genRadius: getRadius(player),
 		lastChunk: undefined,
+		lastChunkCheckPoll: undefined,
 	});
 }
 
@@ -48,15 +52,15 @@ export function registerPlayer(player) {
 function getRadius(player) {
 	switch (player.clientSystemInfo?.memoryTier) {
 		case 0: // Super Low
-			return 8;
-		case 1: // Low
 			return 10;
-		case 2: // Mid
+		case 1: // Low
 			return 12;
-		case 3: // High
+		case 2: // Mid
 			return 16;
-		case 4: // Super High
+		case 3: // High
 			return 25;
+		case 4: // Super High
+			return 32;
 		default:
 			return 8;
 	}

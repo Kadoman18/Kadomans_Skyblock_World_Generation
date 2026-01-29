@@ -6,24 +6,6 @@ world.afterEvents.playerInteractWithBlock.subscribe((eventData) => {
 	const { player, beforeItemStack, itemStack, block, blockFace, faceLocation, isFirstEvent } =
 		eventData;
 	if (
-		player.getGameMode() === "Creative" &&
-		block.typeId === "minecraft:loom" &&
-		itemStack.typeId === "minecraft:brush"
-	) {
-		const props = world.getDynamicPropertyIds();
-		for (const prop of props) {
-			if (
-				prop !== "kado:overworld_unlocked" &&
-				prop !== "kado:nether_unlocked" &&
-				!prop.startsWith("kado:budAmWater")
-			) {
-				world.setDynamicProperty(prop, undefined);
-				debugMsg(`Property: ${prop} found, set to undefined, and removed.`);
-			}
-		}
-		return;
-	}
-	if (
 		(beforeItemStack?.typeId === "minecraft:water_bucket" &&
 			itemStack?.typeId === "minecraft:bucket" &&
 			player.getGameMode() === "Survival") ||

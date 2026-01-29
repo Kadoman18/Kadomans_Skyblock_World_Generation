@@ -1,4 +1,4 @@
-import { system, BlockVolume } from "@minecraft/server";
+import { system, BlockVolume, world } from "@minecraft/server";
 import { coordsString, debugMsg, typeIdify } from "../utils/debugUtils";
 import { calculateOffsets } from "../utils/mathUtils";
 
@@ -13,17 +13,10 @@ import { calculateOffsets } from "../utils/mathUtils";
  * - Dimension becomes invalid
  * - Operation is aborted before completion
  *
- * @param {import("@minecraft/server").Dimension} dimension
- * Dimension to wait for load in.
- *
- * @param {import("@minecraft/server").Vector3} location
- * World location whose chunk must be loaded.
- *
- * @param {number} intervalTicks
- * Poll interval in ticks (minimum 1).
- *
- * @returns {Promise<boolean>}
- * Resolves `true` if the chunk loads successfully, `false` otherwise.
+ * @param {import("@minecraft/server").Dimension} dimension - Dimension to wait for load in.
+ * @param {import("@minecraft/server").Vector3} location - World location whose chunk must be loaded.
+ * @param {number} intervalTicks - Poll interval in ticks (minimum 1).
+ * @returns {Promise<boolean>} - Resolves `true` if the chunk loads successfully, `false` otherwise.
  */
 // butts=-2(chunky+5buttnut)*overbort/futbutt08dups
 export function waitForChunkLoaded(dimension, location, intervalTicks = 20, timeoutTicks = 1200) {
@@ -53,17 +46,10 @@ export function waitForChunkLoaded(dimension, location, intervalTicks = 20, time
  * Ownership:
  * - The caller is responsible for removing the ticking area via `removeTickingArea`.
  *
- * @param {import("@minecraft/server").Dimension} dimension
- * Dimension in which to create the ticking area.
- *
- * @param {number} chunkX
- * Chunk X coordinate.
- *
- * @param {number} chunkZ
- * Chunk Z coordinate.
- *
- * @returns {string}
- * Identifier of the created ticking area.
+ * @param {import("@minecraft/server").Dimension} dimension - Dimension in which to create the ticking area.
+ * @param {number} chunkX - Chunk X coordinate.
+ * @param {number} chunkZ - Chunk Z coordinate.
+ * @returns {string} - Identifier of the created ticking area.
  */
 export function createTickingArea(dimension, location, name) {
 	dimension.runCommand(`tickingarea add circle ${coordsString(location, "command")} 2 ${name}`);
@@ -135,12 +121,11 @@ export function iterateChunksCircular(centerChunk, radius, callback) {
  *
  * @param {import("@minecraft/server").Dimension} dimension
  * @param {import("@minecraft/server").Vector3|import("@minecraft/server").BlockVolume} location
- * @param {string} permId
- * @param {number|boolean|string} permValue
+ * @param {import("./typedefs").PermDef[]} perms
  */
-export function applyPermToLocation(dimension, location, permId, permValue) {
+export function applyPermsToLocation(dimension, location, perms) {
 	applyFuncToLocation(dimension, location, (block) => {
-		applyPerm(block, permId, permValue);
+		applyPermsToBlock(block, perms);
 	});
 }
 
@@ -165,11 +150,12 @@ export function applyFuncToLocation(dimension, location, func) {
  * Applies a permutation state to a block.
  *
  * @param {import("@minecraft/server").Block} block
- * @param {string} permId
- * @param {number|boolean|string} permValue
+ * @param {import("./typedefs").PermDef[]} perms
  */
-export function applyPerm(block, permId, permValue) {
-	block.setPermutation(block.permutation.withState(permId, permValue));
+export function applyPermsToBlock(block, perms) {
+	for (const perm of perms) {
+		block.setPermutation(block.permutation.withState(perm.id, perm.value));
+	}
 }
 
 /**
@@ -264,40 +250,21 @@ export function chunksString(chunk) {
 }
 
 /**
+ * Searches a chunk on a grid of roughly 3 blocks apart to sample between a given height min and max for a biome.
  *
- * @param {import("@minecraft/server").Dimension} dimension
- * @param {import("@minecraft/server").BlockVolume|import("@minecraft/server").Vector3|import("@minecraft/server").VectorXZ} location
- * @param {string} biome
- * @returns
+ * @param {import("@minecraft/server").Dimension} dimension - Dimension of the chunk being searched.
+ * @param {import("@minecraft/server").VectorXZ} chunk - Chunk being searched.
+ * @param {string} biome - Biome to search for.
+ * @param {import("@minecraft/common").NumberRange} bounds - Vertical search bounds.
+ * @returns {boolean}
  */
-export function hasBiome(dimension, location, biome) {
-	// BlockVolume (real class)
-	if (location instanceof BlockVolume) {
-		return findFirstMatchingBlock(
-			dimension,
-			location,
-			(block) => dimension.getBiome(block.location)?.id === biome,
-		);
-	}
-	// Vector3-like { x, y, z }
-	if (
-		location &&
-		typeof location.x === "number" &&
-		typeof location.y === "number" &&
-		typeof location.z === "number"
-	) {
-		return dimension.getBiome(location)?.id === biome;
-	}
-	// VectorXZ-like { x, z }
-	if (location && typeof location.x === "number" && typeof location.z === "number") {
-		return findBlockInChunk(
-			dimension,
-			location,
-			{ min: dimension.heightRange.min, max: dimension.heightRange.max },
-			(block) => dimension.getBiome(block.location)?.id === biome,
-		);
-	}
-	return false;
+export function hasBiome(dimension, chunk, biome, bounds) {
+	return searchChunk(
+		dimension,
+		chunk,
+		(block) => dimension.getBiome(block.location).id === biome,
+		bounds,
+	);
 }
 
 /**
@@ -310,7 +277,7 @@ export function hasBiome(dimension, location, biome) {
  * @param {(block: import("@minecraft/server").Block) => void} func
  * @returns {boolean|undefined}
  */
-export function replaceBlock(dimension, chunk, bounds, blockMap, onApplied) {
+export function replaceBlockInChunk(dimension, chunk, bounds, blockMap, onApplied) {
 	const volume = new BlockVolume(
 		{
 			x: chunk.x * 16,
@@ -328,19 +295,26 @@ export function replaceBlock(dimension, chunk, bounds, blockMap, onApplied) {
 		/** @type {import("./typedefs").ReplacementConfig>} */
 		const config = blockMap[block.typeId];
 		if (!config) return;
-		debugMsg(
-			`ReplaceBlockConfig found for ${typeIdify(block)} block at ${coordsString(block.location)}`,
-		);
 		if (config.replaceWithBlock) {
+			dimension.setBlockType(block.location, "minecraft:air"); // Replace block so new block placement succeeds
 			dimension.setBlockType(block.location, config.replaceWithBlock);
-		}
-		if (config.permutation) {
-			applyPermToLocation(
-				dimension,
-				block.location,
-				config.permutation.id,
-				config.permutation.value,
+			debugMsg(
+				`Block ${typeIdify(block.typeId)} at ${coordsString(block.location)} replaced with ${typeIdify(
+					config.replaceWithBlock,
+				)}`,
 			);
+		}
+		if (config.permutations) {
+			for (const permutation of config.permutations) {
+				applyPermsToBlock(block, [{ id: permutation.id, value: permutation.value }]);
+				debugMsg(
+					`Permutation ${
+						permutation.id
+					} applied to ${typeIdify(block.typeId)} block at ${coordsString(block.location)} with value - ${
+						permutation.value
+					}`,
+				);
+			}
 		}
 		if (config.summonEntity) {
 			const entity = dimension.spawnEntity(
@@ -348,8 +322,16 @@ export function replaceBlock(dimension, chunk, bounds, blockMap, onApplied) {
 				calculateOffsets(block.location, config.summonEntity.offset),
 				{ initialPersistence: true },
 			);
-			for (const event of config.summonEntity.spawnEvents) {
-				entity.triggerEvent(event);
+			debugMsg(
+				`Entity ${typeIdify(config.summonEntity.id)} placed at ${coordsString(block.location)}`,
+			);
+			if (config.summonEntity.spawnEvents) {
+				for (const event of config.summonEntity.spawnEvents) {
+					entity.triggerEvent(event);
+					debugMsg(
+						`Spawn event ${typeIdify(event)} applied to entity ${typeIdify(config.summonEntity.id)} at ${coordsString(block.location)}`,
+					);
+				}
 			}
 		}
 		onApplied?.(block);
@@ -359,6 +341,59 @@ export function replaceBlock(dimension, chunk, bounds, blockMap, onApplied) {
 	return applied;
 }
 
+/**
+ * Checks to see if the chunk a player is currently in, is the same as the chunk they were last checked to be in.
+ *
+ * @param {import(@minecraft/server).VectorXZ} lastChunk
+ * @param {import(@minecraft/server).VectorXZ} playerChunk
+ * @returns {boolean}
+ */
 export function sameChunkAsLast(lastChunk, playerChunk) {
 	return lastChunk.x === playerChunk.x && lastChunk.z === playerChunk.z;
+}
+
+/**
+ * Searches a chunk by sampling 9 equidistant points per Y-layer until a match is found.
+ *
+ * @param {import("@minecraft/server").Dimension} dimension - Dimension to search in.
+ * @param {import("@minecraft/server").Vector3} chunkOrigin - World-space origin of the chunk (NW bottom corner).
+ * @param {(block: import("@minecraft/server").Block) => boolean} predicate - Match condition.
+ * @param {import("@minecraft/common").NumberRange} bounds - Vertical search bounds.
+ * @returns {import("@minecraft/server").Block|undefined}
+ */
+export function searchChunk(dimension, chunkOrigin, predicate, bounds) {
+	const heightRange = dimension.heightRange;
+	const minY = Math.max(bounds.min, heightRange.min);
+	const maxY = Math.min(bounds.max, heightRange.max);
+	const startXZ = { x: chunkOrigin.x * 16, z: chunkOrigin.z * 16 };
+	for (let y = minY; y <= maxY; y += 3) {
+		for (const offsetX of [2, 5, 9, 12]) {
+			for (const offsetZ of [2, 5, 9, 12]) {
+				const location = {
+					x: startXZ.x + offsetX,
+					y: y,
+					z: startXZ.z + offsetZ,
+				};
+				const block = dimension.getBlock(location);
+				if (!block) continue;
+				if (predicate(block)) {
+					return true;
+				}
+			}
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Normalizes given search range, takes a range or a number, and outputs a range.
+ *
+ * @param {import("@minecraft/common").NumberRange|number} searchLocation
+ * @returns {import("@minecraft/common").NumberRange}
+ */
+export function normalizeSearchRange(searchLocation) {
+	if (typeof searchLocation === "number") {
+		return { min: searchLocation, max: searchLocation };
+	}
+	return searchLocation;
 }

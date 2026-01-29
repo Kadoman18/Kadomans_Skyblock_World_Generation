@@ -31,8 +31,9 @@ export function calculateOffsets(origin, offsets) {
 
 /**
  * Euclidean distance squared
- * @param {import("@minecraft/server").Vector3} vectorA
- * @param {import("@minecraft/server").Vector3} vectorB
+ * @param {import("@minecraft/server").Vector3} vectorA - Point A in the world.
+ * @param {import("@minecraft/server").Vector3} vectorB - Point B in the world.
+ * @returns {number} Distance between the given points.
  */
 export function calculateDistance(vectorA, vectorB) {
 	const distanceX = vectorA.x - vectorB.x;

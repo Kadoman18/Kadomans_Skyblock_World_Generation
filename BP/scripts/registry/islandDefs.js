@@ -20,25 +20,27 @@ Northwest: > (-x, -z) - (Back-Right)
 /*
 {
         name: string,
-        targetDimension: string,
+        dimension: string,
         origin_offset: Vector3, // Offset from world spawn
         loot?: {
                 containerLoc: Vector3, // Offset from island origin
                 items: [
                         {
-                        slot: number,
-                        item: string,
-                        amount: number
+                                slot: number,
+                                item: string,
+                                amount: number
                         }
                 ]
         },
         blocks: [
                 {
-                        block: string,
-                        perms?: {
-                                perm: string,
-                                value: any
-                        },
+                        blockId: string,
+                        perms?: [
+                                {
+                                        perm: string,
+                                        value: any
+                                }
+                        ],
                         offset: {
                                 from: Vector3,
                                 to: Vector3
@@ -55,10 +57,11 @@ NOTES:
 // --------------------------------------------------
 // Island Registries
 // --------------------------------------------------
+/**@type {import("../utils/typedefs").IslandDef[]} */
 const overworldIslands = [
 	{
 		name: "Starter Island",
-		targetDimension: "overworld",
+		dimension: "overworld",
 		origin_offset: { x: 0, y: 0, z: 0 },
 		loot: {
 			containerLoc: { x: 0, y: 0, z: 4 },
@@ -69,63 +72,63 @@ const overworldIslands = [
 		},
 		blocks: [
 			{
-				block: "minecraft:oak_leaves",
+				blockId: "minecraft:oak_leaves",
 				offset: { from: { x: -3, y: 6, z: -1 }, to: { x: -5, y: 6, z: -1 } },
 			},
 			{
-				block: "minecraft:oak_leaves",
+				blockId: "minecraft:oak_leaves",
 				offset: { from: { x: -4, y: 6, z: 0 }, to: { x: -4, y: 6, z: -2 } },
 			},
 			{
-				block: "minecraft:oak_leaves",
+				blockId: "minecraft:oak_leaves",
 				offset: { from: { x: -3, y: 5, z: 0 }, to: { x: -5, y: 5, z: -2 } },
 			},
 			{
-				block: "minecraft:oak_leaves",
+				blockId: "minecraft:oak_leaves",
 				offset: { from: { x: -2, y: 4, z: 1 }, to: { x: -6, y: 4, z: -3 } },
 			},
 			{
-				block: "minecraft:oak_leaves",
+				blockId: "minecraft:oak_leaves",
 				offset: { from: { x: -2, y: 3, z: 0 }, to: { x: -6, y: 3, z: -2 } },
 			},
 			{
-				block: "minecraft:oak_leaves",
+				blockId: "minecraft:oak_leaves",
 				offset: { from: { x: -3, y: 3, z: 1 }, to: { x: -5, y: 3, z: -3 } },
 			},
 			{
-				block: "minecraft:oak_log",
+				blockId: "minecraft:oak_log",
 				offset: { from: { x: -4, y: 5, z: -1 }, to: { x: -4, y: 0, z: -1 } },
 			},
 			{
-				block: "minecraft:chest",
-				perms: { perm: "minecraft:cardinal_direction", value: "north" },
+				blockId: "minecraft:chest",
+				perms: [{ id: "minecraft:cardinal_direction", value: "north" }],
 				offset: { from: { x: 0, y: 0, z: 4 }, to: { x: 0, y: 0, z: 4 } },
 			},
 			{
-				block: "minecraft:grass",
+				blockId: "minecraft:grass",
 				offset: { from: { x: 1, y: -1, z: 4 }, to: { x: -1, y: -1, z: -1 } },
 			},
 			{
-				block: "minecraft:grass",
+				blockId: "minecraft:grass",
 				offset: { from: { x: -2, y: -1, z: 1 }, to: { x: -4, y: -1, z: -1 } },
 			},
 			{
-				block: "minecraft:dirt",
+				blockId: "minecraft:dirt",
 				offset: { from: { x: 1, y: -2, z: 4 }, to: { x: -1, y: -3, z: -1 } },
 			},
 			{
-				block: "minecraft:dirt",
+				blockId: "minecraft:dirt",
 				offset: { from: { x: -2, y: -2, z: 1 }, to: { x: -4, y: -3, z: -1 } },
 			},
 			{
-				block: "minecraft:bedrock",
+				blockId: "minecraft:bedrock",
 				offset: { from: { x: 0, y: -3, z: 0 }, to: { x: 0, y: -3, z: 0 } },
 			},
 		],
 	},
 	{
 		name: "Sand Island",
-		targetDimension: "overworld",
+		dimension: "overworld",
 		origin_offset: { x: 0, y: 0, z: -67 },
 		loot: {
 			containerLoc: { x: 0, y: 0, z: 0 },
@@ -139,80 +142,88 @@ const overworldIslands = [
 		},
 		blocks: [
 			{
-				block: "minecraft:chest",
-				perms: { perm: "minecraft:cardinal_direction", value: "south" },
+				blockId: "minecraft:chest",
+				perms: [{ id: "minecraft:cardinal_direction", value: "south" }],
 				offset: { from: { x: 0, y: 0, z: 0 }, to: { x: 0, y: 0, z: 0 } },
 			},
 			{
-				block: "minecraft:sand",
+				blockId: "minecraft:sand",
 				offset: { from: { x: -1, y: -1, z: -1 }, to: { x: 1, y: -3, z: 1 } },
 			},
 			{
-				block: "minecraft:sculk_vein",
-				perms: { perm: "multi_face_direction_bits", value: 2 },
+				blockId: "minecraft:sculk_vein",
+				perms: [{ id: "multi_face_direction_bits", value: 2 }],
 				offset: { from: { x: -2, y: -4, z: -2 }, to: { x: 2, y: -4, z: 2 } },
 			},
 			{
-				block: "minecraft:cactus",
+				blockId: "minecraft:cactus",
 				offset: { from: { x: -1, y: 0, z: -1 }, to: { x: -1, y: 0, z: -1 } },
 			},
 			{
-				block: "minecraft:cactus_flower",
+				blockId: "minecraft:cactus_flower",
 				offset: { from: { x: -1, y: 1, z: -1 }, to: { x: -1, y: 1, z: -1 } },
 			},
 			// Updates all sculk to be the correct permutation (sometimes its bugged so this is a backup)
 			{
-				block: "minecraft:sculk_vein",
-				perms: { perm: "multi_face_direction_bits", value: 2 },
+				blockId: "minecraft:sculk_vein",
+				perms: [{ id: "multi_face_direction_bits", value: 2 }],
 				offset: { from: { x: -2, y: -5, z: -2 }, to: { x: 2, y: -5, z: 2 } },
 			},
 			{
-				block: "minecraft:air",
+				blockId: "minecraft:air",
 				offset: { from: { x: -2, y: -5, z: -2 }, to: { x: 2, y: -5, z: 2 } },
 			},
 		],
 	},
 ];
 
+/**@type {import("../utils/typedefs").IslandDef[]} */
 const netherIslands = [
 	{
 		name: "Nether Island",
-		targetDimension: "nether",
+		dimension: "nether",
 		origin_offset: { x: 0, y: 0, z: 0 },
 		blocks: [
 			{
-				block: "minecraft:warped_nylium",
+				blockId: "minecraft:warped_nylium",
 				offset: { from: { x: -2, y: -1, z: 2 }, to: { x: -1, y: -1, z: -1 } },
 			},
 			{
-				block: "minecraft:soul_sand",
+				blockId: "minecraft:soul_sand",
 				offset: { from: { x: -1, y: -1, z: 2 }, to: { x: -1, y: -1, z: 2 } },
 			},
 			{
-				block: "minecraft:nether_wart",
+				blockId: "minecraft:nether_wart",
 				offset: { from: { x: -1, y: 0, z: 2 }, to: { x: -1, y: 0, z: 2 } },
 			},
 			{
-				block: "minecraft:crimson_nylium",
+				blockId: "minecraft:crimson_nylium",
 				offset: { from: { x: 1, y: -1, z: 2 }, to: { x: 2, y: -1, z: -1 } },
 			},
 			{
-				block: "minecraft:soul_sand",
+				blockId: "minecraft:soul_sand",
 				offset: { from: { x: 1, y: -1, z: -1 }, to: { x: 1, y: -1, z: -1 } },
 			},
 			{
-				block: "minecraft:nether_wart",
+				blockId: "minecraft:nether_wart",
 				offset: { from: { x: 1, y: 0, z: -1 }, to: { x: 1, y: 0, z: -1 } },
 			},
 			{
-				block: "minecraft:netherrack",
+				blockId: "minecraft:netherrack",
 				offset: { from: { x: -2, y: -2, z: 2 }, to: { x: 2, y: -3, z: -1 } },
 			},
 		],
 	},
 ];
+
+/**@type {import("../utils/typedefs").IslandDef[]} */
 const endIslands = [{}];
 
+/**
+ *
+ * @param {import("@minecraft/server").Dimension} dimension
+ * @returns {import("../utils/typedefs").IslandDef[]}
+ */
 export function getIslands(dimension) {
 	switch (dimension.id) {
 		case "minecraft:overworld":
