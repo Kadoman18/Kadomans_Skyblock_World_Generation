@@ -96,4 +96,5 @@
  * @property {string} biomeId - Identifier of the biome to match against.
  * @property {import("@minecraft/common").NumberRange|number} bounds - Vertical search bounds used when checking for the biome. A single number is treated as a fixed Y-level.
  */
+
 export {};

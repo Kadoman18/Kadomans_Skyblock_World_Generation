@@ -18,9 +18,7 @@ import { getIslands } from "../registry/islandDefs";
 function buildIslandBlocks(island, worldOrigin) {
 	const dimension = world.getDimension(island.dimension);
 	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
-	debugMsg(
-		`${island.name} origin resolved at ${coordsString(islandOrigin)}\nBuilding Island Now...`,
-	);
+	debugMsg(`Building ${island.name} Now...`);
 	for (const iteration of island.blocks) {
 		const from = calculateOffsets(islandOrigin, iteration.offset.from);
 		const to = calculateOffsets(islandOrigin, iteration.offset.to);
@@ -127,7 +125,6 @@ function finalizeIslandLoot(island, worldOrigin) {
 export function suspendPlayer(player, location, ticks = 40) {
 	const suspend = system.runInterval(() => {
 		player.tryTeleport(location);
-		debugMsg(`${player.name} Suspended.`);
 	}, 5);
 	system.runTimeout(() => {
 		system.clearRun(suspend);
@@ -165,7 +162,7 @@ export function generateIsland(island, worldOrigin) {
 /**
  *
  * @param {import("@minecraft/server").Dimension} dimension - The dimension to unlock.
- * @returns {string} - The dynamic property id.
+ * @returns {string} The unlock key for the dynamic property id.
  */
 export function makeUnlockKey(dimension) {
 	return `kado:${dimension.id.replaceAll("minecraft:", "")}_unlocked`;
@@ -174,8 +171,8 @@ export function makeUnlockKey(dimension) {
 /**
  * Initializes island generation for a player’s current dimension.
  *
- * @param {import("@minecraft/server").Player} player
- * @returns {boolean}
+ * @param {import("@minecraft/server").Player} player - The player triggering the island initialization.
+ * @returns {boolean} `true` if island generation succeeds, `false` otherwise.
  */
 export function initializeIslands(player) {
 	const { dimension, location } = player;
@@ -183,15 +180,8 @@ export function initializeIslands(player) {
 	if (world.getDynamicProperty(unlockKey)) return true;
 	const islands = getIslands(player.dimension);
 	if (!islands || islands.length === 0) return false;
-	const origin =
-		dimension.id === "minecraft:overworld"
-			? {
-					x: world.getDefaultSpawnLocation().x,
-					y: 65,
-					z: world.getDefaultSpawnLocation().z,
-				}
-			: location;
-	debugMsg(`Origin Found: ${coordsString(origin)} - Awaiting island generation.`);
+	const origin = getIslandOrigin(dimension, location);
+	debugMsg(`Origin Found: ${coordsString(origin)} - Awaiting Generation...`);
 	suspendPlayer(
 		player,
 		{
@@ -208,4 +198,24 @@ export function initializeIslands(player) {
 	world.setDynamicProperty(unlockKey, true);
 	debugMsg(`Dynamic Property "${unlockKey}" set to ${world.getDynamicProperty(unlockKey)}`);
 	return true;
+}
+
+/**
+ *
+ * @param {import("@minecraft/server").Dimension} dimension - Dimension to get the origin point of.
+ * @param {import("@minecraft/server").Vector3} location - Player location object for island reference.
+ * @returns {import("@minecraft/server").Vector3} The world origin.
+ */
+function getIslandOrigin(dimension, location) {
+	switch (dimension.id) {
+		case "minecraft:overworld":
+			return {
+				x: world.getDefaultSpawnLocation().x,
+				y: 65,
+				z: world.getDefaultSpawnLocation().z,
+			};
+		default: {
+			return location;
+		}
+	}
 }

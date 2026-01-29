@@ -39,29 +39,26 @@ export function registerPlayer(player) {
 }
 
 /**
- * Computes a chunk‑generation radius based on client memory tier.
+ * Computes a chunk‑generation radius based on client memory tier and max render distance.
  *
  * Falls back to a conservative default if tier data is unavailable.
  *
- * @param {import("@minecraft/server").Player} player
- * Player whose client capabilities are evaluated.
- *
- * @returns {number}
- * Generation radius in chunks.
+ * @param {import("@minecraft/server").Player} player - Player whose client capabilities are evaluated.
+ * @returns {number} Generation radius in chunks.
  */
 function getRadius(player) {
 	switch (player.clientSystemInfo?.memoryTier) {
 		case 0: // Super Low
-			return 10;
+			return Math.min(player.clientSystemInfo.maxRenderDistance, 10);
 		case 1: // Low
-			return 12;
+			return Math.min(player.clientSystemInfo.maxRenderDistance, 12);
 		case 2: // Mid
-			return 16;
+			return Math.min(player.clientSystemInfo.maxRenderDistance, 16);
 		case 3: // High
-			return 25;
+			return Math.min(player.clientSystemInfo.maxRenderDistance, 25);
 		case 4: // Super High
-			return 32;
+			return Math.min(player.clientSystemInfo.maxRenderDistance, 32);
 		default:
-			return 8;
+			return Math.min(player.clientSystemInfo.maxRenderDistance, 10);
 	}
 }

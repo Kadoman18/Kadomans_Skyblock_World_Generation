@@ -21,7 +21,7 @@ Northwest: > (-x, -z) - (Back-Right)
 {
         name: string,
         dimension: string,
-        origin_offset: Vector3, // Offset from world spawn
+        origin_offset?: Vector3, // Offset from world spawn
         loot?: {
                 containerLoc: Vector3, // Offset from island origin
                 items: [
@@ -106,19 +106,15 @@ const overworldIslands = [
 			},
 			{
 				blockId: "minecraft:grass",
-				offset: { from: { x: 1, y: -1, z: 4 }, to: { x: -1, y: -1, z: -1 } },
-			},
-			{
-				blockId: "minecraft:grass",
-				offset: { from: { x: -2, y: -1, z: 1 }, to: { x: -4, y: -1, z: -1 } },
+				offset: { from: { x: 1, y: -1, z: 4 }, to: { x: -4, y: -1, z: -1 } },
 			},
 			{
 				blockId: "minecraft:dirt",
-				offset: { from: { x: 1, y: -2, z: 4 }, to: { x: -1, y: -3, z: -1 } },
+				offset: { from: { x: 1, y: -2, z: 4 }, to: { x: -4, y: -3, z: -1 } },
 			},
 			{
-				blockId: "minecraft:dirt",
-				offset: { from: { x: -2, y: -2, z: 1 }, to: { x: -4, y: -3, z: -1 } },
+				blockId: "minecraft:air",
+				offset: { from: { x: -1, y: -1, z: 4 }, to: { x: -4, y: -3, z: 2 } },
 			},
 			{
 				blockId: "minecraft:bedrock",
@@ -175,6 +171,17 @@ const overworldIslands = [
 			},
 		],
 	},
+	{
+		name: "End Initializer",
+		dimension: "the_end",
+		origin_offset: { x: 0, y: 0, z: 0 },
+		blocks: [
+			{
+				blockId: "minecraft:end_stone",
+				offset: { from: { x: 0, y: 0, z: 0 }, to: { x: 0, y: 0, z: 0 } },
+			},
+		],
+	},
 ];
 
 /**@type {import("../utils/typedefs").IslandDef[]} */
@@ -217,11 +224,18 @@ const netherIslands = [
 ];
 
 /**@type {import("../utils/typedefs").IslandDef[]} */
-const endIslands = [{}];
+const endIslands = [
+	{
+		name: "empty",
+		dimension: "the_end",
+		origin_offset: { x: 100, y: 50, z: 0 },
+		blocks: [],
+	},
+];
 
 /**
  *
- * @param {import("@minecraft/server").Dimension} dimension
+ * @param {import("@minecraft/server").Dimension} dimension - Dimension to fetch island objects for.
  * @returns {import("../utils/typedefs").IslandDef[]}
  */
 export function getIslands(dimension) {
