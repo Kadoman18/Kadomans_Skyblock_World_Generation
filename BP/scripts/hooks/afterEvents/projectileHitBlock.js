@@ -8,41 +8,7 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 		return;
 	source.removeTag("kado:threwThickPotion");
 	debugMsg(`Potion hit face: "${face}" at ${coordsString(location)}`);
-	let effectCenter;
-	switch (face) {
-		case "North": {
-			effectCenter = {
-				x: Math.floor(location.x) + 0.5,
-				y: Math.floor(location.y) + 0.5,
-				z: Math.floor(location.z) - 0.5,
-			};
-			break;
-		}
-		case "West": {
-			effectCenter = {
-				x: Math.floor(location.x) - 0.5,
-				y: Math.floor(location.y) + 0.5,
-				z: Math.floor(location.z) + 0.5,
-			};
-			break;
-		}
-		case "Down": {
-			effectCenter = {
-				x: Math.floor(location.x) + 0.5,
-				y: Math.floor(location.y) - 0.5,
-				z: Math.floor(location.z) + 0.5,
-			};
-			break;
-		}
-		default: {
-			effectCenter = {
-				x: Math.floor(location.x) + 0.5,
-				y: Math.floor(location.y) + 0.5,
-				z: Math.floor(location.z) + 0.5,
-			};
-			break;
-		}
-	}
+	let effectCenter = getEffectCenter(face, location);
 	debugMsg(`Effect location calculated to ${coordsString(effectCenter)}.`);
 	const radius = 1.4;
 	const blockHitsVol = new BlockVolume(
@@ -62,3 +28,41 @@ world.afterEvents.projectileHitBlock.subscribe((eventData) => {
 	});
 	dimension.fillBlocks(blockHits, "minecraft:deepslate");
 });
+/**
+ *
+ * @param {string} face - Block face the potion hit.
+ * @param {import("@minecraft/server").Vector3} location - Location of block that was hit.
+ * @returns {import("@minecraft/server").Vector3}
+ */
+function getEffectCenter(face, location) {
+	switch (face) {
+		case "North": {
+			return {
+				x: Math.floor(location.x) + 0.5,
+				y: Math.floor(location.y) + 0.5,
+				z: Math.floor(location.z) - 0.5,
+			};
+		}
+		case "West": {
+			return {
+				x: Math.floor(location.x) - 0.5,
+				y: Math.floor(location.y) + 0.5,
+				z: Math.floor(location.z) + 0.5,
+			};
+		}
+		case "Down": {
+			return {
+				x: Math.floor(location.x) + 0.5,
+				y: Math.floor(location.y) - 0.5,
+				z: Math.floor(location.z) + 0.5,
+			};
+		}
+		default: {
+			return {
+				x: Math.floor(location.x) + 0.5,
+				y: Math.floor(location.y) + 0.5,
+				z: Math.floor(location.z) + 0.5,
+			};
+		}
+	}
+}

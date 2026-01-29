@@ -12,23 +12,24 @@ import { getIslands } from "../registry/islandDefs";
 /**
  * Builds all blocks of an island.
  *
- * @param {object} island - Island object.
+ * @param {import("../utils/typedefs").IslandDef} island - Island object.
  * @param {import("@minecraft/server").Vector3} worldOrigin - World origin reference.
  */
 function buildIslandBlocks(island, worldOrigin) {
-	const dimension = island.dimension;
+	const dimension = world.getDimension(island.dimension);
 	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
 	debugMsg(
 		`${island.name} origin resolved at ${coordsString(islandOrigin)}\nBuilding Island Now...`,
 	);
 	for (const iteration of island.blocks) {
-		const dimension = world.getDimension(island.targetDimension);
 		const from = calculateOffsets(islandOrigin, iteration.offset.from);
 		const to = calculateOffsets(islandOrigin, iteration.offset.to);
-		const volume = new BlockVolume(from, to);
-		dimension.fillBlocks(volume, iteration.block);
+		const vol = new BlockVolume(from, to);
+		dimension.fillBlocks(vol, iteration.blockId);
 		if (iteration.perms) {
-			applyPermToLocation(dimension, volume, iteration.perms.perm, iteration.perms.value);
+			applyPermToLocation(dimension, vol, [
+				{ id: iteration.perms.perm, value: iteration.perms.value },
+			]);
 		}
 	}
 }
@@ -75,11 +76,11 @@ const containersArray = [
 /**
  * Locates a chest on an island and fills it with loot.
  *
- * @param {object} island - Island object with loot.
+ * @param {import("../utils/typedefs").IslandDef} island - Island object with loot.
  * @param {import("@minecraft/server").Vector3} worldOrigin - World origin reference.
  */
 function fillContainer(island, worldOrigin) {
-	const dimension = world.getDimension(`minecraft:${island.targetDimension}`);
+	const dimension = world.getDimension(`minecraft:${island.dimension}`);
 	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
 	const containerLoc = calculateOffsets(islandOrigin, island.loot.containerLoc);
 	system.run(() => {
@@ -100,7 +101,7 @@ function fillContainer(island, worldOrigin) {
 			);
 		}
 		debugMsg(
-			`${island.name} Loot container of type ${typeIdify(container)} found and filled at location: ${coordsString(containerLoc)}`,
+			`${island.name} Loot container of type ${typeIdify(container.typeId)} found and filled at location: ${coordsString(containerLoc)}`,
 		);
 	});
 }
@@ -108,7 +109,7 @@ function fillContainer(island, worldOrigin) {
 /**
  * Fills chest with loot if defined.
  *
- * @param {object} island - Island object with loot.
+ * @param {import("../utils/typedefs").IslandDef} island - Island object with loot.
  * @param {import("@minecraft/server").Vector3} worldOrigin - World origin reference.
  */
 function finalizeIslandLoot(island, worldOrigin) {
@@ -143,11 +144,11 @@ export function suspendPlayer(player, location, ticks = 40) {
  * - Populates loot chests
  * - Cleans up ticking area
  *
- * @param {object} island - Island definition.
+ * @param {import("../utils/typedefs").IslandDef} island - Island definition.
  * @param {import("@minecraft/server").Vector3} worldOrigin - World origin reference.
  */
 export function generateIsland(island, worldOrigin) {
-	const dimension = world.getDimension(`minecraft:${island.targetDimension}`);
+	const dimension = world.getDimension(`minecraft:${island.dimension}`);
 	const islandOrigin = calculateOffsets(worldOrigin, island.origin_offset);
 	const tickName = `${island.name.replace(/\s+/g, "_").toLowerCase()}`;
 	createTickingArea(dimension, islandOrigin, tickName);
