@@ -4,6 +4,12 @@
 	"padding": 8,
 	"num_mip_levels": 4,
 	"texture_data": {
+		"empty": {
+			"textures": "textures/blocks/empty"
+		},
+		"stable_air": {
+			"textures": "textures/blocks/stable_air"
+		},
 		"vault_top": {
 			"textures": "textures/blocks/vault_top"
 		},

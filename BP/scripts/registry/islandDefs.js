@@ -147,9 +147,8 @@ const overworldIslands = [
 				offset: { from: { x: -1, y: -1, z: -1 }, to: { x: 1, y: -3, z: 1 } },
 			},
 			{
-				blockId: "minecraft:sculk_vein",
-				perms: [{ id: "multi_face_direction_bits", value: 2 }],
-				offset: { from: { x: -2, y: -4, z: -2 }, to: { x: 2, y: -4, z: 2 } },
+				blockId: "kado:stable_air",
+				offset: { from: { x: -1, y: -4, z: -1 }, to: { x: 1, y: -4, z: 1 } },
 			},
 			{
 				blockId: "minecraft:cactus",
@@ -158,16 +157,6 @@ const overworldIslands = [
 			{
 				blockId: "minecraft:cactus_flower",
 				offset: { from: { x: -1, y: 1, z: -1 }, to: { x: -1, y: 1, z: -1 } },
-			},
-			// Updates all sculk to be the correct permutation (sometimes its bugged so this is a backup)
-			{
-				blockId: "minecraft:sculk_vein",
-				perms: [{ id: "multi_face_direction_bits", value: 2 }],
-				offset: { from: { x: -2, y: -5, z: -2 }, to: { x: 2, y: -5, z: 2 } },
-			},
-			{
-				blockId: "minecraft:air",
-				offset: { from: { x: -2, y: -5, z: -2 }, to: { x: 2, y: -5, z: 2 } },
 			},
 		],
 	},

@@ -1,0 +1,22 @@
+{
+	"format_version": "1.21.120",
+	"minecraft:item": {
+		"description": {
+			"identifier": "kado:stable_air",
+			"menu_category": {
+				"category": "construction"
+			}
+		},
+		"components": {
+			"minecraft:display_name": {
+				"value": "Stable Air"
+			},
+			"minecraft:allow_off_hand": true,
+			"minecraft:block_placer": {
+				"block": "kado:stable_air",
+				"replace_block_item": true
+			},
+			"minecraft:max_stack_size": 64
+		}
+	}
+}
