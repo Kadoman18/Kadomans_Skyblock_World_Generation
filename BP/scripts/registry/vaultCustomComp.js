@@ -8,6 +8,9 @@ import {
 	invalidVaultInteract,
 	toggleVaultType,
 	validVaultInteract,
+	getVaultRuntime,
+	resetVaultRuntime,
+	spawnVaultActivationBurst,
 } from "../utils/customVaultUtils";
 import { applyPermsToBlock } from "../utils/chunkUtils";
 
@@ -33,12 +36,10 @@ export const kadoVault = {
 			const player = playerInfoMap.player;
 			const cooldownId = makeVaultCooldownId(block, player);
 			const cooldown = world.getDynamicProperty(cooldownId) ?? 0;
-
 			if (cooldown > 0) {
 				const next = Math.max(cooldown - 10, 0);
 				world.setDynamicProperty(cooldownId, next);
 				anyCooldownActive = true;
-
 				if (next % 600 === 0 || cooldown === 6000) {
 					const time = ticksToTime(next);
 					debugMsg(`${cooldownId}] Cooldown: ${time.minutes}m ${time.seconds}s`, false);
@@ -66,15 +67,22 @@ export const kadoVault = {
 		const newState = hasEligiblePlayerNearby
 			? { state: "active", sound: "vault.activate" }
 			: { state: "inactive", sound: "vault.deactivate" };
-		const particle =
+		const flameParticle =
 			block.permutation.getState("kado:vault_type") === "normal"
 				? "minecraft:basic_flame_particle"
 				: "minecraft:blue_flame_particle";
-		if (
+		const isActive =
 			block.permutation.getState("kado:vault_state") === "active" ||
-			block.permutation.getState("kado:vault_state") === "dispensing"
-		) {
-			dimension.spawnParticle(particle, particleLoc);
+			block.permutation.getState("kado:vault_state") === "dispensing";
+		const runtime = getVaultRuntime(block);
+		if (isActive) {
+			if (!runtime.burstDone) {
+				spawnVaultActivationBurst(dimension, block.location, flameParticle);
+				runtime.burstDone = true;
+			}
+			dimension.spawnParticle(flameParticle, particleLoc);
+		} else {
+			resetVaultRuntime(block);
 		}
 		if (block.permutation.getState("kado:vault_state") !== newState.state) {
 			applyPermsToBlock(block, [{ id: "kado:vault_state", value: newState.state }]);

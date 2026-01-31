@@ -1,6 +1,6 @@
 import { world } from "@minecraft/server";
 import { validGeode, randomBudAmDelay } from "../utils/renewAmethystUtils";
-import { parseCoordsFromId } from "../utils/customVaultUtils";
+import { parseCoordsFromId } from "../utils/mathUtils";
 import { debugMsg, ticksToTime, coordsString } from "../utils/debugUtils";
 
 export function processAmethystBuds(initialized) {

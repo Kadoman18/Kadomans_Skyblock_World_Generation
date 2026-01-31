@@ -6,6 +6,86 @@ import { applyPermsToBlock } from "./chunkUtils";
 // --------------------------------------------------
 // Reusable Custom Vaults Functions
 // --------------------------------------------------
+
+/**
+ * @type {Map<string, { burstDone: boolean }>}
+ */
+const vaultRuntimeCache = new Map();
+
+/**
+ * Generates a unique runtime key for a vault block.
+ *
+ * @param {import("@minecraft/server").Block} block
+ * @returns {string}
+ */
+function getVaultRuntimeKey(block) {
+	return `${block.dimension.id}:${block.location.x},${block.location.y},${block.location.z}`;
+}
+
+/**
+ * Retrieves (or creates) runtime data for a vault.
+ *
+ * @param {import("@minecraft/server").Block} block
+ * @returns {{ burstDone: boolean }}
+ */
+export function getVaultRuntime(block) {
+	const key = getVaultRuntimeKey(block);
+
+	let runtime = vaultRuntimeCache.get(key);
+	if (!runtime) {
+		runtime = { burstDone: false };
+		vaultRuntimeCache.set(key, runtime);
+	}
+
+	return runtime;
+}
+
+/**
+ * Resets runtime data when a vault deactivates.
+ *
+ * @param {import("@minecraft/server").Block} block
+ */
+export function resetVaultRuntime(block) {
+	const key = getVaultRuntimeKey(block);
+	vaultRuntimeCache.delete(key);
+}
+
+// --------------------------------------------------
+// Particle helpers
+// --------------------------------------------------
+
+/**
+ * Spawns the initial vanilla-style activation burst.
+ *
+ * @param {import("@minecraft/server").Dimension} dimension
+ * @param {import("@minecraft/server").Vector3} center
+ * @param {string} particle
+ */
+export function spawnVaultActivationBurst(dimension, location, particle) {
+	const count = randomNum(20, 25, true);
+	for (let i = 0; i < count; i++) {
+		dimension.spawnParticle(particle, {
+			x: location.x + randomNum(0.1, 0.9, false),
+			y: location.y + randomNum(0.1, 0.9, false),
+			z: location.z + randomNum(0.1, 0.9, false),
+		});
+	}
+}
+
+/**
+ * Spawns the sustained vault connection particle.
+ *
+ * @param {import("@minecraft/server").Dimension} dimension
+ * @param {import("@minecraft/server").Vector3} center
+ */
+export function spawnVaultConnectionParticle(dimension, center) {
+	dimension.spawnParticle("minecraft:vault_connection", {
+		x: center.x,
+		y: center.y + 0.4,
+		z: center.z,
+	});
+}
+
 /**
  * Generates a unique cooldown identifier for a vault-player pair.
  * * Cooldowns are scoped by:
@@ -65,27 +145,6 @@ export function dispenseVaultLoot(dimension, block, lootRoll) {
 			dimension.playSound("vault.deactivate", block.location);
 		}, 20);
 	}, 10);
-}
-
-/**
- * Extracts block coordinates from a dynamic property identifier.
- * * Expected coordinate format inside the id:
- *   (X:Y:Z)
- * * Example:
- *   kado:budAmWater-minecraft:overworld-(1:64:2)
- *
- * @param {string} id - Dynamic property identifier.
- * @returns {import("@minecraft/server").Vector3} Parsed coordinates or undefined if invalid.
-
-*/
-export function parseCoordsFromId(id) {
-	const match = id.match(/\((-?\d+):(-?\d+):(-?\d+)\)/);
-	if (!match) return undefined;
-	return {
-		x: Number(match[1]),
-		y: Number(match[2]),
-		z: Number(match[3]),
-	};
 }
 
 /**

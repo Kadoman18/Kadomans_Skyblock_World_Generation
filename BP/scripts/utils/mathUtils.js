@@ -41,3 +41,24 @@ export function calculateDistance(vectorA, vectorB) {
 	const distanceZ = vectorA.z - vectorB.z;
 	return Math.sqrt(distanceX ** 2 + distanceY ** 2 + distanceZ ** 2);
 }
+/**
+ * Extracts block coordinates from a dynamic property identifier.
+ * * Expected coordinate format inside the id:
+ *   (X:Y:Z)
+ * * Example:
+ *   kado:budAmWater-minecraft:overworld-(1:64:2)
+ *
+ * @param {string} id - Dynamic property identifier.
+ * @returns {import("@minecraft/server").Vector3} Parsed coordinates or undefined if invalid.
+
+*/
+
+export function parseCoordsFromId(id) {
+	const match = id.match(/\((-?\d+):(-?\d+):(-?\d+)\)/);
+	if (!match) return undefined;
+	return {
+		x: Number(match[1]),
+		y: Number(match[2]),
+		z: Number(match[3]),
+	};
+}

@@ -114,7 +114,7 @@ const overworldIslands = [
 			},
 			{
 				blockId: "minecraft:air",
-				offset: { from: { x: -1, y: -1, z: 4 }, to: { x: -4, y: -3, z: 2 } },
+				offset: { from: { x: -2, y: -1, z: 4 }, to: { x: -4, y: -3, z: 2 } },
 			},
 			{
 				blockId: "minecraft:bedrock",
