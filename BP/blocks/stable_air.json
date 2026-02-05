@@ -5,20 +5,18 @@
 			"identifier": "kado:stable_air",
 			"menu_category": { "category": "construction" },
 			"states": {
-				"kado:visibility": [false, true],
-				"kado:avoidance": ["nw", "sw", "se", "ne"],
-				"kado:purpose": ["none", "support", "skybox"]
+				"kado:visibe": [true, false],
+				"kado:active": [true, false],
+				"kado:avoidance": ["nw", "sw", "se", "ne"]
 			}
 		},
 		"components": {
 			"kado:stable_air": {},
 			"minecraft:display_name": "Stable Air",
-			"minecraft:tick": { "interval_range": [1, 1] },
 			"minecraft:geometry": "minecraft:geometry.full_block",
 			"minecraft:material_instances": {
 				"*": { "texture": "stable_air", "render_method": "alpha_test" }
 			},
-			"minecraft:collision_box": false,
 			"minecraft:precipitation_interactions": { "precipitation_behavior": "none" },
 			"minecraft:liquid_detection": {
 				"detection_rules": [
@@ -45,8 +43,9 @@
 		"permutations": [
 			// Visible
 			{
-				"condition": "q.block_state('kado:visibility')",
+				"condition": "q.block_state('kado:visibe')",
 				"components": {
+					"minecraft:tick": { "interval_range": [20, 20] },
 					"minecraft:selection_box": true,
 					"minecraft:collision_box": false,
 					"minecraft:material_instances": {
@@ -59,8 +58,10 @@
 			},
 			// Invisible
 			{
-				"condition": "!q.block_state('kado:visibility')",
+				"condition": "!q.block_state('kado:visibe')",
 				"components": {
+					"minecraft:tick": { "interval_range": [1, 1] },
+					"minecraft:selection_box": false,
 					"minecraft:material_instances": {
 						"*": {
 							"texture": "empty",
@@ -71,53 +72,30 @@
 			},
 			// Support North West
 			{
-				"condition": "!q.block_state('kado:visibility') && q.block_state('kado:avoidance') == 'nw'",
+				"condition": "q.block_state('kado:avoidance') == 'nw'",
 				"components": {
-					"minecraft:selection_box": false,
-					"minecraft:collision_box": { "origin": [7.89, 0, -7.9], "size": [0.01, 15, 0.01] },
-					"minecraft:replaceable": {}
+					"minecraft:collision_box": { "origin": [7.89, 0, -7.9], "size": [0.01, 15, 0.01] }
 				}
 			},
 			// Support South West
 			{
-				"condition": "!q.block_state('kado:visibility') && q.block_state('kado:avoidance') == 'sw'",
+				"condition": "q.block_state('kado:avoidance') == 'sw'",
 				"components": {
-					"minecraft:selection_box": false,
-					"minecraft:collision_box": { "origin": [7.89, 0, 7.9], "size": [0.01, 15, 0.01] },
-					"minecraft:replaceable": {}
+					"minecraft:collision_box": { "origin": [7.89, 0, 7.9], "size": [0.01, 15, 0.01] }
 				}
 			},
 			// Support South East
 			{
-				"condition": "!q.block_state('kado:visibility') && q.block_state('kado:avoidance') == 'se'",
+				"condition": "q.block_state('kado:avoidance') == 'se'",
 				"components": {
-					"minecraft:selection_box": false,
-					"minecraft:collision_box": { "origin": [-7.91, 0, 7.9], "size": [0.01, 15, 0.01] },
-					"minecraft:replaceable": {}
+					"minecraft:collision_box": { "origin": [-7.91, 0, 7.9], "size": [0.01, 15, 0.01] }
 				}
 			},
 			// Support North East
 			{
-				"condition": "!q.block_state('kado:visibility') && q.block_state('kado:avoidance') == 'ne'",
+				"condition": "q.block_state('kado:avoidance') == 'ne'",
 				"components": {
-					"minecraft:selection_box": false,
-					"minecraft:collision_box": { "origin": [-7.91, 0, -7.9], "size": [0.01, 15, 0.01] },
-					"minecraft:replaceable": {}
-				}
-			},
-			// Skybox
-			{
-				"condition": "q.block_state('kado:purpose') == 'skybox'",
-				"components": {
-					"minecraft:selection_box": true,
-					"minecraft:collision_box": { "origin": [-8, 14.99, -8], "size": [16, 0.01, 16] },
-					"minecraft:replaceable": {},
-					"minecraft:material_instances": {
-						"*": {
-							"texture": "empty",
-							"render_method": "alpha_test"
-						}
-					}
+					"minecraft:collision_box": { "origin": [-7.91, 0, -7.9], "size": [0.01, 15, 0.01] }
 				}
 			}
 		]

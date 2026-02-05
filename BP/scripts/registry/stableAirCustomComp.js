@@ -14,10 +14,10 @@ function getAvoidanceCorner(block, player) {
 	const playerIsEast = distance.x > 0;
 	const playerIsSouth = distance.z > 0;
 	// Invert direction to get farthest corner
-	if (playerIsEast && playerIsSouth) return "nw";
-	if (playerIsEast && !playerIsSouth) return "sw";
-	if (!playerIsEast && playerIsSouth) return "ne";
-	if (!playerIsEast && !playerIsSouth) return "se";
+	if (playerIsSouth && playerIsEast) return "nw";
+	if (!playerIsSouth && playerIsEast) return "sw";
+	if (playerIsSouth && !playerIsEast) return "ne";
+	if (!playerIsSouth && !playerIsEast) return "se";
 }
 
 const gravityBlocks = [
@@ -58,7 +58,7 @@ export const kadoStableAir = {
 		let shouldBeVisible = false;
 		let closestPlayer = undefined;
 		let closestDistanceSq = Infinity;
-
+		if (!dimension.isChunkLoaded(block.location)) return;
 		for (const playerInfoMap of playerInfoMaps.values()) {
 			const player = playerInfoMap.player;
 			const mainHandItem = player
@@ -82,11 +82,11 @@ export const kadoStableAir = {
 				closestPlayer = player;
 			}
 		}
-		const currentVisibility = block.permutation.getState("kado:visibility");
+		const currentVisibility = block.permutation.getState("kado:visibe");
 		if (currentVisibility !== shouldBeVisible) {
-			applyPermsToBlock(block, [{ id: "kado:visibility", value: shouldBeVisible }]);
+			applyPermsToBlock(block, [{ id: "kado:visibe", value: shouldBeVisible }]);
 		}
-		// Only update avoidance when invisible and a player exists
+		// Only update avoidance when invisible, purpose is support, and a player exists
 		if (!shouldBeVisible && closestPlayer) {
 			const targetAvoidance = getAvoidanceCorner(block, closestPlayer);
 			const currentAvoidance = block.permutation.getState("kado:avoidance");
@@ -99,22 +99,21 @@ export const kadoStableAir = {
 			gravityBlocks.includes(block.above().typeId) ||
 			gravityBlocks.includes(block.below().typeId)
 		) {
-			applyPermsToBlock(block, [{ id: "kado:purpose", value: "support" }]);
+			applyPermsToBlock(block, [{ id: "kado:active", value: true }]);
 		}
 		if (
-			block.permutation.getState("kado:purpose") === "support" &&
 			!gravityBlocks.includes(block.above().typeId) &&
-			!gravityBlocks.includes(block.below().typeId)
+			!gravityBlocks.includes(block.below().typeId) &&
+			block.permutation.getState("kado:active") === true
 		) {
 			dimension.setBlockType(block.location, "minecraft:air");
 		}
 	},
 	onPlace(eventData) {
 		const { block, dimension } = eventData;
-		if (dimension.id === "minecraft:nether" && block.location.y === 128) {
-			debugMsg(`Skybox Working at ${coordsString(block.location)}`);
-			applyPermsToBlock(block, [{ id: "kado:purpose", value: "skybox" }]);
-		}
-		applyPermsToBlock(block, [{ id: "kado:visibility", value: false }]);
+		applyPermsToBlock(block, [
+			{ id: "kado:visibe", value: true },
+			{ id: "kado:active", value: false },
+		]);
 	},
 };

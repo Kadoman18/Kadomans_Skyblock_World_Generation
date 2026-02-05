@@ -5,20 +5,20 @@
 		"name": "Skyblock Generation (RP)",
 		"description": "Enables void world generation while keeping biome mapping",
 		"uuid": "874788cf-fbc0-444c-b1e6-2f53be02a126",
-		"version": [1, 0, 3]
+		"version": [1, 0, 4]
 	},
 	"modules": [
 		{
 			"type": "resources",
-			"description": "First Iteration",
+			"description": "Added Stable Air.",
 			"uuid": "8f9da2b6-1982-4387-b482-f4d19bf1dfcf",
-			"version": [1, 0, 3]
+			"version": [1, 0, 4]
 		}
 	],
 	"dependencies": [
 		{
 			"uuid": "242f5fff-aa4a-44d0-94ae-aea9bf12c39f",
-			"version": [1, 1, 24]
+			"version": [1, 1, 25]
 		}
 	],
 	"metadata": { "authors": ["Kadoman18"] }
