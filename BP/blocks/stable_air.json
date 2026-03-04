@@ -61,6 +61,7 @@
 				"condition": "!q.block_state('kado:visibe')",
 				"components": {
 					"minecraft:tick": { "interval_range": [1, 1] },
+					"minecraft:replaceable": {},
 					"minecraft:selection_box": false,
 					"minecraft:material_instances": {
 						"*": {
@@ -88,7 +89,7 @@
 			{
 				"condition": "q.block_state('kado:avoidance') == 'se'",
 				"components": {
-					"minecraft:collision_box": { "origin": [-7.91, 0, 7.9], "size": [0.01, 15, 0.01] }
+					"minecraft:collision_box": { "origin": [-7.91, 0, 8.9], "size": [0.01, 15, 0.01] }
 				}
 			},
 			// Support North East

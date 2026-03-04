@@ -2,7 +2,7 @@
 // Global Debug Toggle
 // --------------------------------------------------
 // Enables verbose console output through debugMsg()
-const debugging = true;
+const debugging = false;
 
 /**
  * Logs a debug message if the messages value is less than or equal to the debugLevel global value.
@@ -11,7 +11,11 @@ const debugging = true;
  * @param {boolean} error - Displays a console warning, true if error, else false.
  */
 export function debugMsg(message, error = false) {
-	error ? console.warn(message) : debugging && console.log(message);
+	if (error) {
+		console.warn(message);
+	} else if (debugging) {
+		console.log(message);
+	}
 }
 
 /**

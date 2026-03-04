@@ -2,8 +2,8 @@
 	"format_version": "1.21.60",
 	"minecraft:feature_rules": {
 		"description": {
-			"identifier": "kado:end_replace_feature_rule",
-			"places_feature": "kado:end_replace_feature"
+			"identifier": "kado:nether_skybox_feature_rule",
+			"places_feature": "kado:nether_skybox_feature"
 		},
 		"conditions": {
 			"placement_pass": "final_pass",
@@ -13,7 +13,7 @@
 						{
 							"test": "has_biome_tag",
 							"operator": "==",
-							"value": "the_end"
+							"value": "nether"
 						}
 					]
 				}

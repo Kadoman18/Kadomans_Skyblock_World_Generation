@@ -30,6 +30,7 @@ export const kadoVault = {
 			z: block.location.z + randomNum(0.1, 0.9, false),
 		};
 		dimension.spawnParticle("minecraft:basic_smoke_particle", particleLoc);
+		/*
 		// World-level, per player cooldown ticking
 		let anyCooldownActive = false;
 		for (const playerInfoMap of playerInfoMaps.values()) {
@@ -44,6 +45,17 @@ export const kadoVault = {
 					const time = ticksToTime(next);
 					debugMsg(`${cooldownId}] Cooldown: ${time.minutes}m ${time.seconds}s`, false);
 				}
+			}
+		}
+                */
+		let anyCooldownActive = false;
+		for (const info of playerInfoMaps.values()) {
+			const player = info.player;
+			const cooldownId = makeVaultCooldownId(block, player);
+			const cooldown = world.getDynamicProperty(cooldownId) ?? 0;
+			if (cooldown > 0) {
+				anyCooldownActive = true;
+				break;
 			}
 		}
 		if (block.permutation.getState("kado:vault_state") === "dispensing") return;

@@ -1,0 +1,50 @@
+{
+	"format_version": "1.21.120",
+	"minecraft:block": {
+		"description": {
+			"identifier": "kado:netherrack",
+			"menu_category": { "category": "nature" }
+		},
+		"components": {
+			"kado:netherrack": {},
+			"minecraft:display_name": "Netherrack",
+			"minecraft:tick": {
+				"interval_range": [20, 20]
+			},
+			"minecraft:geometry": "minecraft:geometry.full_block",
+			"minecraft:material_instances": {
+				"*": { "texture": "netherrack", "render_method": "opaque" }
+			},
+			"tag:minecraft:stone_tier_destructible": {},
+			"minecraft:destructible_by_mining": {
+				"seconds_to_destroy": 2,
+				"item_specific_speeds": [
+					{
+						"item": "minecraft:stone_pickaxe",
+						"destroy_speed": 0.3
+					},
+					{
+						"item": "minecraft:copper_pickaxe",
+						"destroy_speed": 0.15
+					},
+					{
+						"item": "minecraft:iron_pickaxe",
+						"destroy_speed": 0.15
+					},
+					{
+						"item": "minecraft:diamond_pickaxe",
+						"destroy_speed": 0.1
+					},
+					{
+						"item": "minecraft:netherite_pickaxe",
+						"destroy_speed": 0.1
+					},
+					{
+						"item": "minecraft:golden_pickaxe",
+						"destroy_speed": 0.05
+					}
+				]
+			}
+		}
+	}
+}

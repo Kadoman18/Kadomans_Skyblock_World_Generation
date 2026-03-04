@@ -1,7 +1,8 @@
 import { system, world } from "@minecraft/server";
 import { randomNum } from "../utils/mathUtils";
-import { coordsString, debugMsg } from "../utils/debugUtils";
+import { coordsString, ticksToTime, debugMsg } from "../utils/debugUtils";
 import { applyPermsToBlock } from "./chunkUtils";
+import { playerInfoMaps } from "../cache/playersCache";
 
 // --------------------------------------------------
 // Reusable Custom Vaults Functions
@@ -199,4 +200,23 @@ export function validVaultInteract(mainhand, vaultType, permutation) {
 			vaultType === "ominous" &&
 			permutation.getState("kado:vault_state") === "active")
 	);
+}
+
+export function decrementValutCooldowns() {
+	for (const playerInfoMap of playerInfoMaps.values()) {
+		const player = playerInfoMap.player;
+		if (!player?.isValid) continue;
+		for (const id of world.getDynamicPropertyIds()) {
+			if (!id.startsWith("kado:vault-")) continue;
+			if (!id.endsWith(player.name)) continue;
+			const cooldown = world.getDynamicProperty(id) ?? 0;
+			if (cooldown <= 0) continue;
+			const next = Math.max(cooldown - 10, 0);
+			world.setDynamicProperty(id, next);
+			if (next % 600 === 0 || cooldown === 6000) {
+				const time = ticksToTime(next);
+				debugMsg(`${id}] Cooldown: ${time.minutes}m ${time.seconds}s`, false);
+			}
+		}
+	}
 }

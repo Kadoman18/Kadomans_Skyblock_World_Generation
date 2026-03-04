@@ -2,6 +2,7 @@ import { world, system } from "@minecraft/server";
 import { scriptWorldGen } from "../../loops/scriptWorldGen";
 import { processAmethystBuds } from "../../loops/amethystBudLoop";
 import { worldInitializer } from "../../loops/worldInitializer";
+import { decrementValutCooldowns } from "../../utils/customVaultUtils";
 
 world.afterEvents.worldLoad.subscribe(() => {
 	let initialized = false;
@@ -11,6 +12,9 @@ world.afterEvents.worldLoad.subscribe(() => {
 			system.clearRun(initInterval);
 		}
 	}, 5);
+	system.runInterval(() => {
+		decrementValutCooldowns();
+	}, 10);
 	system.runInterval(() => {
 		scriptWorldGen(initialized);
 	}, 20);
