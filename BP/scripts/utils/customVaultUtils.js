@@ -195,10 +195,9 @@ export function toggleVaultType(vaultType, block) {
  */
 export function validVaultInteract(mainhand, vaultType, permutation) {
 	return (
-		(mainhand === "minecraft:trial_key" && vaultType === "normal") ||
-		(mainhand === "minecraft:ominous_trial_key" &&
-			vaultType === "ominous" &&
-			permutation.getState("kado:vault_state") === "active")
+		((mainhand === "minecraft:trial_key" && vaultType === "normal") ||
+			(mainhand === "minecraft:ominous_trial_key" && vaultType === "ominous")) &&
+		permutation.getState("kado:vault_state") === "active"
 	);
 }
 
