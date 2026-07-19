@@ -211,7 +211,7 @@ function getIslandOrigin(dimension, location) {
 		case "minecraft:overworld":
 			return {
 				x: world.getDefaultSpawnLocation().x,
-				y: 65,
+				y: 62,
 				z: world.getDefaultSpawnLocation().z,
 			};
 		default: {

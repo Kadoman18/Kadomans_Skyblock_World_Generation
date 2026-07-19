@@ -5,7 +5,7 @@
 const debugging = false;
 
 /**
- * Logs a debug message if the messages value is less than or equal to the debugLevel global value.
+ * Logs a debug message/error if the global debug value is set to true.
  *
  * @param {string} message - Message to log.
  * @param {boolean} error - Displays a console warning, true if error, else false.

@@ -1,11 +1,15 @@
+import { world } from "@minecraft/server";
+import { findAllBlocksInVolume, getBlocksInTaxicabDistance } from "./chunkUtils";
+import { coordsString, debugMsg } from "./debugUtils";
+
 /**
  * Takes a block location from the dynamic property parser and determines wether the geode formation is valid at that location.
  *
  * @param {import("@minecraft/server").Dimension} dimension
  * @param {import("@minecraft/server").Vector3} blockLoc
  * @returns {boolean|undefined}
- * true  = structure valid
- * false = structure invalid
+ * true = structure valid,
+ * false = structure invalid,
  * undefined  = cannot evaluate (unloaded chunks)
  */
 export function validGeode(dimension, blockLoc) {
@@ -18,41 +22,15 @@ export function validGeode(dimension, blockLoc) {
 		!dimension.getBlock(center.location) === "minecraft:water"
 	)
 		return undefined;
-	const innerChecks = [
-		center.above(),
-		center.north(),
-		center.east(),
-		center.south(),
-		center.west(),
-		center.below(),
-	];
-	for (const block of innerChecks) {
+	const innerLayer = getBlocksInTaxicabDistance(dimension, center.location, 1, inner);
+	if (innerLayer.length !== 6) return false;
+	for (const block of innerLayer) {
 		if (block?.typeId === undefined) return undefined;
-		if (block?.typeId !== inner) return false;
 	}
-	const outerChecks = [
-		center.above(2),
-		center.above().north(),
-		center.above().east(),
-		center.above().south(),
-		center.above().west(),
-		center.north(2),
-		center.north().east(),
-		center.east(2),
-		center.east().south(),
-		center.south(2),
-		center.south().west(),
-		center.west(2),
-		center.west().north(),
-		center.below(2),
-		center.below().north(),
-		center.below().east(),
-		center.below().south(),
-		center.below().west(),
-	];
-	for (const block of outerChecks) {
+	const outerLayer = getBlocksInTaxicabDistance(dimension, center.location, 2, outer);
+	if (outerLayer.length !== 18) return false;
+	for (const block of outerLayer) {
 		if (block?.typeId === undefined) return undefined;
-		if (block?.typeId !== outer) return false;
 	}
 	return true;
 }
@@ -71,4 +49,29 @@ export function randomBudAmDelay(step = 20) {
 	const min = 108000;
 	const max = 144000;
 	return min + Math.round(Math.random() * ((max - min) / step + 1)) * step;
+}
+
+/**
+ * Scans an area around a central location for water contained within a valid geode forming structure.
+ *
+ * @param {import("@minecraft/server").Dimension} dimension - Dimension of area to scan.
+ * @param {import("@minecraft/server").Vector3} location - Central location to scan around.
+ */
+export function scanForCrystallineWater(dimension, location) {
+	debugMsg("Running Crystalline Water Search...");
+	const waterBlocks = getBlocksInTaxicabDistance(dimension, location, 2, "minecraft:water");
+	debugMsg(`Scan Complete`);
+	if (!waterBlocks || waterBlocks.length === 0) return;
+	debugMsg(`Waterblocks Found`);
+	for (const waterBlock of waterBlocks) {
+		if (!validGeode(dimension, waterBlock.location)) continue;
+		const delay = randomBudAmDelay();
+		const propId = `kado:budAmWater-${dimension.id}-${coordsString(waterBlock.location, "id")}`;
+		world.setDynamicProperty(propId, delay);
+		debugMsg(
+			`World Dynamic Property '${propId}' set to world with a value of ${world.getDynamicProperty(
+				propId,
+			)}.`,
+		);
+	}
 }

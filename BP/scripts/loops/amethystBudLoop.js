@@ -32,7 +32,7 @@ export function processAmethystBuds(initialized) {
 		}
 		// Structure broken -> reset delay
 		if (geodeState === false) {
-			world.setDynamicProperty(propId, randomBudAmDelay());
+			world.setDynamicProperty(propId, undefined);
 			continue;
 		}
 		// geodeState === true -> countdown

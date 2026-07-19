@@ -200,7 +200,7 @@ export function findBlockInChunkAndDoFunc(dimension, chunk, bounds, predicate, f
 		},
 	);
 	if (func) {
-                findFirstMatchingBlock(dimension, volume, predicate, func);
+		findFirstMatchingBlock(dimension, volume, predicate, func);
 	} else {
 		return findFirstMatchingBlock(dimension, volume, predicate) ? true : false;
 	}
@@ -397,4 +397,69 @@ export function normalizeSearchRange(searchLocation) {
 		return { min: searchLocation, max: searchLocation };
 	}
 	return searchLocation;
+}
+
+/**
+ * Finds all blocks in a given area matching the given type and outputs a collection of the matches.
+ *
+ * @param {import("@minecraft/server").Dimension} dimension - The dimension in which to iterate.
+ * @param {import("@minecraft/server".BlockVolume)} volume - The volume to search.
+ * @param {string} - The block type Id to search for.
+ * @returns {import("@minecraft/server").Vector3[]} - The matches found in the volume.
+ */
+
+export function findAllBlocksInVolume(dimension, volume, blockType) {
+	let blockArray = [];
+	const minX = Math.min(volume.from.x, volume.to.x);
+	const maxX = Math.max(volume.from.x, volume.to.x);
+	const minY = Math.min(volume.from.y, volume.to.y);
+	const maxY = Math.max(volume.from.y, volume.to.y);
+	const minZ = Math.min(volume.from.z, volume.to.z);
+	const maxZ = Math.max(volume.from.z, volume.to.z);
+	for (let x = minX; x <= maxX; x++) {
+		for (let y = minY; y <= maxY; y++) {
+			for (let z = minZ; z <= maxZ; z++) {
+				const block = dimension.getBlock({ x, y, z });
+				if (!block) continue;
+				if (block.typeId !== blockType) {
+					continue;
+				}
+				blockArray.push(block);
+			}
+		}
+	}
+	return blockArray;
+}
+
+/**
+ * Returns all blocks within a Manhattan (taxicab) distance of the center, taking an optional block type filter.
+ *
+ * @param {Dimension} dimension
+ * @param {{x:number, y:number, z:number}} center
+ * @param {number} distance
+ * @param {string?} filter
+ * @returns {Block[]}
+ */
+export function getBlocksInTaxicabDistance(dimension, center, distance, filter = undefined) {
+	const blocks = [];
+	for (let distanceY = -distance; distanceY <= distance; distanceY++) {
+		const remainingY = distance - Math.abs(distanceY);
+		for (let distanceZ = -remainingY; distanceZ <= remainingY; distanceZ++) {
+			const remainingZ = remainingY - Math.abs(distanceZ);
+			for (let distanceX = -remainingZ; distanceX <= remainingZ; distanceX++) {
+				const block = dimension.getBlock({
+					x: center.x + distanceX,
+					y: center.y + distanceY,
+					z: center.z + distanceZ,
+				});
+                                if (filter && block.typeId === filter) {
+					blocks.push(block);
+                                }
+				if (!filter) {
+					blocks.push(block);
+				}
+			}
+		}
+	}
+	return blocks;
 }
